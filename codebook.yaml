@@ -1,6 +1,6 @@
 # ICOM codebook — owned by the ICOM router agent. Append-only; never reuse a retired code.
-version: 1.5.0
-updated: 2026-10-19
+version: 1.6.0
+updated: 2026-10-23
 rules: {max_code_len: 6, case: UPPER for agents/clients/verbs, lower.dot for objects}
 verbs:       # header slot 4; maps to house codes D/R/F/O/Q/A
   GO: start/approved to proceed
@@ -12,7 +12,7 @@ verbs:       # header slot 4; maps to house codes D/R/F/O/Q/A
   ASK: question needing answer (house Q)
   ACK: received/understood
   NAK: rejected/cannot parse
-priority: {P0: drop everything, P1: today, P2: this week, P3: whenever}
+priority: {"P0.0": emergency / highest urgency within existing authority, P0: drop everything, P1: today, P2: this week, P3: whenever}
 agents:
   LEAD: lead agent (coordinates; only agent that speaks English to the owner)
   CTO: CTO / technical lead
@@ -110,3 +110,5 @@ fields:      # key=value keys
   scope: client/tenant scope (e.g. scope=CL14)  # added 1.4.0
 paths:       # optional aliases, expand by prefix
   "%w": ~/work
+
+priority_order: ["P0.0", "P0", "P1", "P2", "P3"]
