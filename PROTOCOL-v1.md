@@ -14,7 +14,7 @@ Status: draft, 2026-10-18. Extends the house rule `TL;DR + D/R/F/O/Q/A`. Goal: u
 msg     = header *(LF body)
 header  = "@" from ">" to [ "," to ]* SP pri SP client [SP ticket] SP verb [SP action] SP object *(SP kv)
 from/to = AGENT-code            ; codebook.agents
-pri     = "P0" / "P1" / "P2" / "P3"
+pri     = "P0.0" / "P0" / "P1" / "P2" / "P3"
 client  = CLIENT-code           ; codebook.clients, INT0 if none
 ticket  = "#" 1*VCHAR           ; e.g. #T-1234
 verb    = GO / HOLD / DONE / BLOCKED / REC / FYI / ASK / ACK / NAK
@@ -49,7 +49,7 @@ Notes: full paths are ~25–35% of a v1 message; a short path alias (e.g. `%w=~/
 
 ## 6. Optional cost guidance
 1. One model turn per handoff where possible.
-2. No ack-only messages unless the sender asked for ACK.
+2. No ack-only messages unless the sender asked for ACK or P0.0 requires one.
 3. Hand back a file path, not a summary chain.
 4. Run long analysis, drafting, log review and audits on the cheapest capable model or worker; keep router/dispatcher agents thin.
 5. Cap the number of concurrent helper agents.
@@ -58,7 +58,7 @@ Notes: full paths are ~25–35% of a v1 message; a short path alias (e.g. `%w=~/
 
 ## Rule 11 — ICOM routing
 All inter-agent messages route through ICOM, the LEAD agent included. No direct agent-to-agent sends.
-Format: `@FROM>ICOM>TO[,TO] P0-3 CLIENT #ticket VERB [ACTION] object key=val ...`
+Format: `@FROM>ICOM>TO[,TO] PRI CLIENT #ticket VERB [ACTION] object key=val ...`
 - Address agent-to-agent sends to ICOM only. `>TO` after ICOM names the final recipient(s).
 - ICOM relays the line unchanged to TO, logs it (e.g. `~/work/icom/relay/YYYY-MM-DD.log`), and encodes plain English into CHP if needed.
 - Replies come back the same way: `@TO>ICOM>FROM ...`.
@@ -73,7 +73,7 @@ The rule-11 header is required system-wide. ICOM sends LEAD a daily digest of un
   `ICOM: <exact shorthand line>` / `Plain English: <one sentence, no codes>`
 - No ticket cited: ICOM NAKs the message back to the sender (`@ICOM>FROM P2 INT0 NAK why=no-ticket`) and does not relay it.
 - Comments never include keys, passwords, card data or full account ids. Secrets are referred to by name only.
-- P0 and P1 are logged immediately. FYI and P2-3 items are batched into one comment per ticket per hour.
+- P0.0, P0 and P1 are logged immediately. Non-emergency FYI and P2-3 items are batched into one comment per ticket per hour.
 
 ### ICOM stall fallback
 If ICOM hasn't relayed a message within 1h, the sender sends it direct with the full rule-11 header and cc's LEAD. ICOM backfills the ticket log afterward. The daily digest does not flag these sends as bypasses.
@@ -112,3 +112,58 @@ Stall-fallback direct messages are allowed for internal traffic only. Client sen
 
 ## Changelog
 - 2026-10-19: rule 17 REC-LABEL added.
+
+## P0.0 emergency priority — proposed additive revision (iro-553e3532)
+
+This section takes precedence over older priority, batching and ACK exclusions.
+Canonical spelling is exactly `P0.0` (uppercase P, ASCII zero, dot, zero).
+`P00`, `P0.00`, `P0.1`, `p0.0`, signed/exponent forms and Unicode lookalikes
+are unsupported: reject visibly with `bad-priority`; never normalize, downgrade
+or silently discard them. Existing P0, P1, P2 and P3 keep their meanings.
+
+Urgency order, highest first: **P0.0 > P0 > P1 > P2 > P3**. These are string
+enumeration labels, not decimal numbers. Use integer ranks 0, 1, 2, 3, 4;
+never float conversion. Preserve the original label in routing, ACKs and logs.
+ICX defines the object vocabulary only; ICOM defines this priority vocabulary.
+
+P0.0 means the highest emergency urgency. Act immediately within existing
+authority. The user may defer OPTIONAL review or finance workflow where the
+user has authority; record the instruction, scope, owner, deferred step and
+follow-up evidence on the cited ticket. This priority creates no credentials,
+expands no access, exposes no secrets, authorizes no unrelated charges or client
+sends, and bypasses no mandatory platform safety. It is not a universal
+no-restrictions authorization switch or a new approval queue.
+
+Route via ICOM to the named recipients with the same ticket and unchanged
+header. P0.0 traffic, including FYI and ACK, must be routed and logged
+immediately, never hourly-batched or filtered by the older no-ACK/FYI rule.
+The responsible recipient must send ACK (receipt plus owner/next action) or
+BLOCKED/NAK with a reason within 30 seconds of receipt. Correlate using the
+same ticket and request id where available. ACK does not mean completion or
+authorization; do not ACK an ACK. Record DONE or BLOCKED and evidence afterward.
+On missing ACK after 30 seconds, surface the timeout to the sender and current
+incident owner immediately; retain the emergency label and use only existing
+authorized internal escalation routes. Do not wait for the generic one-hour
+stall timer or infer permission for external sends.
+
+Deploy compatibility before enabling senders. Old parsers reject P0.0; do not
+rewrite it to P0 for them. Unsupported recipients/routes must produce a visible
+NAK/status, preserve ticket/id/hash evidence and leave work explicitly blocked.
+
+Reference implementation boundary: the relay validates and forwards unchanged;
+it does not schedule or preempt work, enforce recipient response timers, publish
+ticket comments, or deliver a sender NAK automatically. `priority_rank` supplies
+the exact order for consuming schedulers. Existing bridge/spool transport order
+is preserved. Operators must surface returned REJECT/FAIL and dead-letter
+records, and the ICOM/recipient integration must provide the ACK/timeout contract
+before claiming end-to-end P0.0 support. A SENT transport result is not an ACK.
+
+P0.0 emergency examples (proposed, iro-553e3532):
+
+```text
+@CTO>ICOM>INFRA P0.0 INT0 #iro-553e3532 GO org.proto id=p00-1
+@INFRA>ICOM>CTO P0.0 INT0 #iro-553e3532 ACK org.proto id=p00-1 own=INFRA nx=INFRA:validate
+@INFRA>ICOM>CTO P0.0 INT0 #iro-553e3532 BLOCKED org.proto id=p00-1 why=unsupported-route
+```
+
+These are parser/contract examples, not grants to deploy. Do not send them live.

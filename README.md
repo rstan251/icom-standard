@@ -7,10 +7,10 @@ ICOM (Inter-agent Comms) is a compact, unambiguous message standard for multi-ag
 
 ## Message format
 ```
-@FROM>ICOM>TO P0-3 LANE #ticket VERB object key=val ...
+@FROM>ICOM>TO PRI LANE #ticket VERB object key=val ...
 ```
 - `FROM` / `TO`: agent codes (`codebook.yaml` → `agents`); multiple recipients `>TO1,TO2`
-- `P0-3`: priority (P0 now, P1 today, P2 this week, P3 whenever)
+- `PRI`: priority (P0.0 emergency, P0 now, P1 today, P2 this week, P3 whenever)
 - `LANE`: client/lane code, `INT0` if internal
 - `#ticket`: task/ticket id (required; no ticket → NAK)
 - `VERB`: GO HOLD DONE BLOCKED REC FYI ASK ACK NAK
@@ -39,3 +39,5 @@ Prepend `adopt/HDR.txt` to the top of the agent's profile/system prompt. Then us
 - `CONTRIBUTING.md`, `LICENSE` (MIT)
 
 Client/lane codes in this repo are generic placeholders.
+
+PRI is exactly P0.0, P0, P1, P2 or P3; see PROTOCOL-v1.md P0.0 emergency priority. P0.0 is urgency, not additional authority.
