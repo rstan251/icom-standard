@@ -60,7 +60,7 @@ either `severity` is set or `status` is `P0`..`P3` (producer form).
 | `verb` | string | Type-specific (below). A lone `-` means missing. |
 | `from` / `to` | string | Agent codes, **case-insensitive**; hyphen allowed (`cl01-bot`). `to` may be a comma list. A lone `-` means missing. |
 | `ts` | string | RFC 3339. UTC `Z` **or** a numeric offset. Fractional seconds allowed. |
-| `ref` | string | Relative `path#digest` or a short token. No scheme, no host (`https://…` is invalid). |
+| `ref` | string | Relative `path#digest`, a short token, or an allowlisted prefix `map:` / `alert:`. Any other `scheme:` prefix is invalid, as is a scheme-less `dotted-host:port`. No leading slash. No CR/LF. |
 | `id` | string | Dedupe key, 20 lowercase hex. See §2.5. |
 | `status` | string | Delivery or outcome. Required for `icom`. |
 | `detail` | string | Short, already-redacted note (≤ 240 chars). |

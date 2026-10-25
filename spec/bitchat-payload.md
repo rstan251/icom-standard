@@ -199,7 +199,7 @@ and attach `ts=` + `hsig=` on the copy it emits.
 | `MAX_LINE` | 1024 octets | Max reassembled ICOM line (router cap). Oversize → `bc-oversize`. |
 | `MAX_FRAGS` | 16 | More → `bc-oversize`. |
 | `FRAG_TTL` | 30 s | Incomplete fragment set → `bc-frag-timeout`. |
-| `HOP_CAP` | 8 | Frame hop count. At 8, silent drop. |
+| `HOP_CAP` | 8 | Advisory frame hop cap. Hop is unauthenticated; mid dedupe is the loop guard. At 8, silent drop. |
 | `MID_TTL` | 600 s | Mesh message-id dedupe window. |
 | `MID_CAP` | 4096 | Mesh dedupe entries. Oldest expire first. |
 
@@ -226,8 +226,8 @@ of the frame, so `|` is not a delimiter.
 ```
 frame       = single / fragment
 single      = %s"IC1" SP %s"S" [SP hop-tok] SP icom-line
-fragment    = %s"IC1" SP %s"F" SP msgid SP index "/" total [SP hop-tok] SP chunk
-hop-tok     = %s"h=" hop
+fragment    = %s"IC1" SP %s"F" SP msgid SP index "/" total SP hop-tok SP chunk
+hop-tok     = %s"h=" hop        ; required on every fragment, including h=0
 hop         = %x30-38           ; 0..8; frame only, never on the ICOM line
 
 msgid       = 16HEXDIG          ; SHA-256(line)[:16], 64-bit
@@ -293,10 +293,18 @@ line, and it is not covered by `M`. Missing `hop` means 0. JSON Schema
 `maxLength` on `line`/`chunk` is a character count; the spec cap is
 1024 UTF-8 **octets**.
 
-Wire mapping (`h=N` omitted when hop is 0):
+Wire mapping:
 
-- single → `IC1 S ` + optional `h=<hop> ` + `line`
-- fragment → `IC1 F ` + `msgid` + ` ` + `index` + `/` + `total` + optional ` h=<hop>` + ` ` + `chunk`
+- single → `IC1 S ` + optional `h=<hop> ` + `line` (`h=N` omitted when hop is 0)
+- fragment → `IC1 F ` + `msgid` + ` ` + `index` + `/` + `total` + ` h=<hop>` + ` ` + `chunk`
+
+Fragment `hop-tok` is mandatory, including `h=0`. A later chunk may
+legitimately start with `h=<0-8> ` (the split point is free), so an
+optional hop token before `chunk` is ambiguous. Example: line
+`@LEAD>ICOM>CTO P2 CL01 #T-1234 FYI org.proto n=1 h=5 x=1` split
+before `h=5` yields chunk 2 `h=5 x=1`; the wire still carries `h=0`
+first. `h=` on the ICOM line is an ordinary `key=val`. `hop=` on the
+line is forbidden.
 
 ### 5.2 Optional binary prefix
 
@@ -328,8 +336,10 @@ frame). Cache `(mid → expiry)`. Window `MID_TTL` = 600 s, cap
 
 Frame `hop` is 0 at the origin (missing means 0). Each ICOM-BC forward
 increments the **frame** hop only. The ICOM line, including `sig` /
-`hsig`, is copied byte-for-byte. `hop >= HOP_CAP` (8) is a **silent
-drop**. Do not NAK.
+`hsig`, is copied byte-for-byte. Frame hop is **unauthenticated**: a
+relay can reset it. `HOP_CAP` (8) is therefore advisory. The real loop
+guard is mid dedupe (`MID_TTL` / `MID_CAP`). A receiver MAY still
+silent-drop when `hop >= HOP_CAP`. Do not NAK.
 
 ### 6.2 NAK shape
 
@@ -447,11 +457,12 @@ this NAK.
 ### 7.4 Fragmented ASK
 
 Role `QC`, `kid=12d4819fcc5f`. `msgid=758c7a56aab911a7` =
-`SHA-256(full line)[:16]`. Frame hop omitted (0).
+`SHA-256(full line)[:16]`. Fragment hop-tok is always present (`h=0`
+here).
 
 ```
-IC1 F 758c7a56aab911a7 1/2 @QC>ICOM>LEAD P1 CL01 #T-5678 ASK qa.review ask=APPROVE|HOLD why=tests,lint
-IC1 F 758c7a56aab911a7 2/2  n=3 sts=1792954800 nc=AAAAAAAAAAAAAAAA sig=ed25519:12d4819fcc5f:zzNnefQsozgYFeEd8ee0F1cCq6N1T4t8Y1MdRCBf438l6Py8MExKyE_nviQVc9AK3bu30XeErn_EfugX6eKnCw
+IC1 F 758c7a56aab911a7 1/2 h=0 @QC>ICOM>LEAD P1 CL01 #T-5678 ASK qa.review ask=APPROVE|HOLD why=tests,lint
+IC1 F 758c7a56aab911a7 2/2 h=0  n=3 sts=1792954800 nc=AAAAAAAAAAAAAAAA sig=ed25519:12d4819fcc5f:zzNnefQsozgYFeEd8ee0F1cCq6N1T4t8Y1MdRCBf438l6Py8MExKyE_nviQVc9AK3bu30XeErn_EfugX6eKnCw
 ```
 
 Chunk 2 starts with SP so reassembly restores the `key=val` separator.

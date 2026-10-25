@@ -1,9 +1,10 @@
 {
   "v": 1,
   "kind": "fragment",
+  "hop": 0,
   "msgid": "758c7a56aab911a7",
   "index": 1,
   "total": 2,
   "chunk": "@QC>ICOM>LEAD P1 CL01 #T-5678 ASK qa.review ask=APPROVE|HOLD why=tests,lint",
-  "wire": "IC1 F 758c7a56aab911a7 1/2 @QC>ICOM>LEAD P1 CL01 #T-5678 ASK qa.review ask=APPROVE|HOLD why=tests,lint"
+  "wire": "IC1 F 758c7a56aab911a7 1/2 h=0 @QC>ICOM>LEAD P1 CL01 #T-5678 ASK qa.review ask=APPROVE|HOLD why=tests,lint"
 }

@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -67,12 +68,13 @@ LONG_TOKEN_RE = re.compile(r"\b[A-Za-z0-9_+-]{40,}={0,2}")
 ED25519_TAIL_RE = re.compile(r"ed25519:[0-9a-f]{12}:[A-Za-z0-9_-]{86}")
 PUB43_RE = re.compile(r"\b[A-Za-z0-9_-]{43}\b")
 BARE_SIG_RE = re.compile(r"\b[A-Za-z0-9_-]{86}\b")
-IRO_ID_RE = re.compile(r"#?iro-[0-9a-fA-F]{8}\b")
-PLT19_TICKET_RE = re.compile(r"\bPLT-19\b")
+# Tracker-style IDs that are not the public T-<digits> placeholder.
+TICKET_ID_RE = re.compile(r"\b(?!T-\d+\b)[A-Z]{2,4}-\d+\b")
+PUBLIC_ID_ALLOW = {"SHA-256", "UTF-8"}
 EMAIL_RE = re.compile(r"[\w.*+-]+@[\w-]+(?:\.[\w-]+)+")
 ALLOW_EMAIL_DOMAIN = re.compile(r"@(?:example|invalid|test)\.(?:com|org|net)\b", re.I)
 INTERNAL_DOMAIN_RE = re.compile(
-    r"(?i)(?:ironnoodle\.com|\b[\w-]+\.(?:internal|local|lan|corp)\b)"
+    r"(?i)\b[\w-]+\.(?:internal|local|lan|corp)\b"
 )
 VENDOR_RE = re.compile(
     r"(?i)\b(?:cursor|openai|anthropic|claude|chatgpt|gpt-[0-9]|grok|"
@@ -123,26 +125,30 @@ def expect_schema_fail(schema_path: Path, example_path: Path) -> str | None:
 
 def frame_wire(inst: dict) -> str:
     hop = inst.get("hop", 0)
-    hop_tok = ("h=%d " % hop) if hop else ""
     kind = inst.get("kind")
     if kind == "single":
+        hop_tok = ("h=%d " % hop) if hop else ""
         return "IC1 S " + hop_tok + inst["line"]
     if kind == "fragment":
-        if hop:
-            return "IC1 F %s %d/%d h=%d %s" % (
-                inst["msgid"],
-                inst["index"],
-                inst["total"],
-                hop,
-                inst["chunk"],
-            )
-        return "IC1 F %s %d/%d %s" % (
+        return "IC1 F %s %d/%d h=%d %s" % (
             inst["msgid"],
             inst["index"],
             inst["total"],
+            hop,
             inst["chunk"],
         )
     raise ValueError("unknown kind")
+
+
+def walk_strings(obj):
+    if isinstance(obj, str):
+        yield obj
+    elif isinstance(obj, dict):
+        for value in obj.values():
+            yield from walk_strings(value)
+    elif isinstance(obj, list):
+        for value in obj:
+            yield from walk_strings(value)
 
 
 def check_wire(example_path: Path) -> str | None:
@@ -163,6 +169,9 @@ def check_wire(example_path: Path) -> str | None:
 
 def check_octets(example_path: Path) -> str | None:
     inst = load_json(example_path)
+    for s in walk_strings(inst):
+        if "\n" in s or "\r" in s:
+            return "%s: string contains CR/LF" % example_path.name
     for key in ("line", "chunk"):
         if key not in inst:
             continue
@@ -171,15 +180,15 @@ def check_octets(example_path: Path) -> str | None:
             return "%s: %s is %d octets (cap %d)" % (
                 example_path.name, key, n, MAX_LINE_OCTETS
             )
-        if "\n" in inst[key] or "\r" in inst[key]:
-            return "%s: %s contains CR/LF" % (example_path.name, key)
     if inst.get("kind") == "fragment":
+        if "hop" not in inst:
+            return "%s: fragment missing hop" % example_path.name
         if inst["index"] > inst["total"]:
             return "%s: index > total" % example_path.name
-        if "hop" in inst.get("chunk", "") or " hop=" in inst.get("chunk", ""):
+        if re.search(r"(?:^| )hop=", inst.get("chunk", "")):
             return "%s: hop leaked into chunk" % example_path.name
     line = inst.get("line", "")
-    if re.search(r"(?:^|\s)hop=", line):
+    if re.search(r"(?:^| )hop=", line):
         return "%s: hop= on signed ICOM line" % example_path.name
     return None
 
@@ -221,22 +230,40 @@ def check_timestamps() -> str | None:
 
 
 def check_fragment_pair() -> str | None:
-    a = load_json(EXAMPLES / "icom-bc-fragment-1.json")
-    b = load_json(EXAMPLES / "icom-bc-fragment-2.json")
-    if a["msgid"] != b["msgid"] or a["total"] != b["total"]:
-        return "fragment pair msgid/total mismatch"
-    if {a["index"], b["index"]} != {1, 2}:
-        return "fragment pair index set is not {1,2}"
-    line = a["chunk"] + b["chunk"]
-    if not line.startswith("@QC>ICOM>LEAD "):
-        return "reassembled fragment is not an ICOM line"
-    if "\n" in line or "\r" in line:
-        return "reassembled fragment contains a newline"
-    expect = hashlib.sha256(line.encode()).hexdigest()[:MID_HEX]
-    if a["msgid"] != expect:
-        return "fragment msgid != SHA-256(line)[:%d]" % MID_HEX
-    if len(a["msgid"]) != MID_HEX:
-        return "msgid is not %d hex chars" % MID_HEX
+    groups: dict[str, list] = {}
+    for path in sorted(EXAMPLES.glob("icom-bc-fragment*.json")):
+        inst = load_json(path)
+        groups.setdefault(inst["msgid"], []).append(inst)
+    if len(groups) < 2:
+        return "expected at least two fragment pairs"
+    saw_qc = False
+    saw_h5 = False
+    for msgid, items in groups.items():
+        items.sort(key=lambda row: row["index"])
+        totals = {row["total"] for row in items}
+        if len(totals) != 1:
+            return "fragment msgid %s total mismatch" % msgid
+        total = items[0]["total"]
+        if {row["index"] for row in items} != set(range(1, total + 1)):
+            return "fragment msgid %s incomplete index set" % msgid
+        line = "".join(row["chunk"] for row in items)
+        if "\n" in line or "\r" in line:
+            return "reassembled fragment contains a newline"
+        expect = hashlib.sha256(line.encode()).hexdigest()[:MID_HEX]
+        if msgid != expect:
+            return "fragment msgid %s != SHA-256(line)[:%d]" % (msgid, MID_HEX)
+        if not line.startswith("@"):
+            return "reassembled fragment is not an ICOM line"
+        if line.startswith("@QC>ICOM>LEAD "):
+            saw_qc = True
+        if items[-1]["chunk"].startswith("h=5"):
+            saw_h5 = True
+            if " h=5 " not in line:
+                return "h=5 fixture line missing h=5 token"
+    if not saw_qc:
+        return "missing QC ASK fragment pair"
+    if not saw_h5:
+        return "missing split-before-h=5 fragment pair"
     return None
 
 
@@ -349,19 +376,19 @@ def check_producer_alerts() -> str | None:
     return None
 
 
+def extra_deny_terms() -> list[str]:
+    raw = os.environ.get("ICOM_HYGIENE_DENY", "")
+    return [term.strip() for term in raw.split(",") if term.strip()]
+
+
 def check_hygiene() -> list[str]:
     hits: list[str] = []
     roots = [
         ROOT / "spec",
         ROOT / "README.md",
-        SCHEMAS / "buzz-event.schema.json",
-        SCHEMAS / "icom-bc-frame.schema.json",
-        SCHEMAS / "vectors",
-        EXAMPLES,
-        TEAM,
-        NEGATIVE,
-        NEG_FRAME,
-        FIXTURES / "id-checks.json",
+        ROOT / "scripts",
+        ROOT / ".github",
+        SCHEMAS,
     ]
     files: list[Path] = []
     for root in roots:
@@ -369,11 +396,13 @@ def check_hygiene() -> list[str]:
             files.append(root)
         elif root.is_dir():
             files.extend(sorted(p for p in root.rglob("*") if p.is_file()))
+    deny_terms = extra_deny_terms()
     for path in files:
         text = path.read_text(encoding="utf-8")
         rel = path.relative_to(ROOT)
         in_vectors = "vectors" in path.parts
         skip_long = "negative" in path.parts or path.name.endswith("-too-long.json")
+        skip_vendor = path.name == "validate_schemas.py"
         for i, line in enumerate(text.splitlines(), 1):
             if IPV4_RE.search(line):
                 hits.append("%s:%d ipv4" % (rel, i))
@@ -381,18 +410,20 @@ def check_hygiene() -> list[str]:
                 hits.append("%s:%d pem" % (rel, i))
             if KEY_RE.search(line):
                 hits.append("%s:%d key-prefix" % (rel, i))
-            if IRO_ID_RE.search(line):
-                hits.append("%s:%d iro-id" % (rel, i))
-            if PLT19_TICKET_RE.search(line):
-                hits.append("%s:%d internal-ticket" % (rel, i))
+            for m in TICKET_ID_RE.finditer(line):
+                if m.group(0) not in PUBLIC_ID_ALLOW:
+                    hits.append("%s:%d ticket-id %s" % (rel, i, m.group(0)))
             for m in EMAIL_RE.finditer(line):
                 if not ALLOW_EMAIL_DOMAIN.search(m.group(0)):
                     hits.append("%s:%d email %s" % (rel, i, m.group(0)))
             cleaned = ALLOW_DOMAIN_LINE.sub(" ", line)
             if INTERNAL_DOMAIN_RE.search(cleaned):
                 hits.append("%s:%d internal-domain" % (rel, i))
-            if VENDOR_RE.search(line):
+            if not skip_vendor and VENDOR_RE.search(line):
                 hits.append("%s:%d vendor-or-model" % (rel, i))
+            for term in deny_terms:
+                if term.lower() in line.lower():
+                    hits.append("%s:%d deny-term" % (rel, i))
             stripped = ED25519_TAIL_RE.sub(" ", line)
             stripped = BARE_SIG_RE.sub(" ", stripped)
             if in_vectors:
