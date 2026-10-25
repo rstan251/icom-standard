@@ -225,7 +225,7 @@ fragment    = %s"IC1" SP %s"F" SP msgid SP index "/" total SP chunk
 msgid       = 8HEXDIG
 index       = 1*2DIGIT          ; 1-based
 total       = 1*2DIGIT          ; 1..16
-chunk       = 1*VCHAR           ; UTF-8, no CR / LF
+chunk       = 1*(WSP / VCHAR)   ; UTF-8 remainder; no CR / LF. May start with SP.
 
 icom-line   = "@" agent %s">ICOM>" recips SP pri SP lane SP ticket
               SP verb [SP verb] SP icx-code *(SP kv) [SP sig-tail]
@@ -238,7 +238,7 @@ ticket      = "#" 1*(ALPHA / DIGIT / "-" / "_" / ".")
 verb        = %s"GO" / %s"HOLD" / %s"DONE" / %s"BLOCKED"
               / %s"REC" / %s"FYI" / %s"ASK" / %s"ACK" / %s"NAK"
 icx-code    = 1*lcalpha *("." 1*lcalpha / "~" 1*lcalpha)
-kv          = key "=" kv-val
+kv          = key "=" kv-val    ; key is not sts / nc / sig / hsig
 key         = 1*(lcalpha / DIGIT / "-" / "_")
 kv-val      = 1*unquoted / DQUOTE *(%x20-21 / %x23-7E) DQUOTE
 unquoted    = %x21-7E           ; printable, including "|"; no SP
