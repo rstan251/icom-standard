@@ -16,4 +16,6 @@ jobs:
       - name: Install schema validator
         run: pip install -r scripts/requirements.txt
       - name: Validate spec examples
+        env:
+          ICOM_HYGIENE_DENY: ${{ secrets.ICOM_HYGIENE_DENY }}
         run: python3 scripts/validate_schemas.py

@@ -56,7 +56,8 @@ MAX_LINE_OCTETS = 1024
 MID_HEX = 16
 
 TS_RE = re.compile(
-    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
+    r"^(?![\s\S]*[\r\n])\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}"
+    r"(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
 )
 IPV4_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 PEM_RE = re.compile(r"-----BEGIN [A-Z ]*(?:PRIVATE KEY|CERTIFICATE)-----")
@@ -71,6 +72,10 @@ BARE_SIG_RE = re.compile(r"\b[A-Za-z0-9_-]{86}\b")
 # Tracker-style IDs that are not the public T-<digits> placeholder.
 TICKET_ID_RE = re.compile(r"\b(?!T-\d+\b)[A-Z]{2,4}-\d+\b")
 PUBLIC_ID_ALLOW = {"SHA-256", "UTF-8"}
+# Lowercase 2-5 letter prefix, hyphen, eight hex digits. Allowlist is
+# empty: no public file in this tree needs that form.
+HEX_ID_RE = re.compile(r"\b[a-z]{2,5}-[0-9a-f]{8}\b")
+HEX_ID_ALLOW: set[str] = set()
 EMAIL_RE = re.compile(r"[\w.*+-]+@[\w-]+(?:\.[\w-]+)+")
 ALLOW_EMAIL_DOMAIN = re.compile(r"@(?:example|invalid|test)\.(?:com|org|net)\b", re.I)
 INTERNAL_DOMAIN_RE = re.compile(
@@ -398,6 +403,8 @@ def check_hygiene() -> list[str]:
             files.extend(sorted(p for p in root.rglob("*") if p.is_file()))
     deny_terms = extra_deny_terms()
     for path in files:
+        if "hygiene-negative" in path.parts:
+            continue
         text = path.read_text(encoding="utf-8")
         rel = path.relative_to(ROOT)
         in_vectors = "vectors" in path.parts
@@ -413,6 +420,9 @@ def check_hygiene() -> list[str]:
             for m in TICKET_ID_RE.finditer(line):
                 if m.group(0) not in PUBLIC_ID_ALLOW:
                     hits.append("%s:%d ticket-id %s" % (rel, i, m.group(0)))
+            for m in HEX_ID_RE.finditer(line):
+                if m.group(0) not in HEX_ID_ALLOW:
+                    hits.append("%s:%d hex-id %s" % (rel, i, m.group(0)))
             for m in EMAIL_RE.finditer(line):
                 if not ALLOW_EMAIL_DOMAIN.search(m.group(0)):
                     hits.append("%s:%d email %s" % (rel, i, m.group(0)))
@@ -431,6 +441,18 @@ def check_hygiene() -> list[str]:
             if not skip_long and LONG_TOKEN_RE.search(stripped):
                 hits.append("%s:%d long-token" % (rel, i))
     return hits
+
+
+def check_hygiene_negatives() -> str | None:
+    path = FIXTURES / "hygiene-negative" / "01-prefix-8hex.txt"
+    if not path.is_file():
+        return "missing hygiene-negative prefix-8hex fixture"
+    if not HEX_ID_RE.search(path.read_text(encoding="utf-8")):
+        return "hex-id pattern missed hygiene-negative fixture"
+    sample = "-".join(("tkt", "ab" * 4))
+    if not HEX_ID_RE.search(sample):
+        return "hex-id pattern missed constructed prefix-8hex"
+    return None
 
 
 def main() -> int:
@@ -478,6 +500,7 @@ def main() -> int:
         check_fragment_pair,
         check_nak_shape,
         check_producer_alerts,
+        check_hygiene_negatives,
     ):
         checks += 1
         err = fn()

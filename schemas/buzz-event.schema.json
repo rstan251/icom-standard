@@ -62,12 +62,14 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
-      "pattern": "^(?![\\s\\S]*[\\r\\n])(?!/)(?!(?![Mm][Aa][Pp]:|[Aa][Ll][Ee][Rr][Tt]:)[A-Za-z][A-Za-z0-9+.-]*:)(?![A-Za-z0-9][A-Za-z0-9.-]*\\.[A-Za-z0-9.-]+:\\d)(?!.*://)[A-Za-z0-9._:#/=-]{1,128}$",
-      "description": "Relative path#digest, a short token, or allowlisted map: / alert:. Any other scheme: prefix is invalid, as is dotted-host:port. No leading slash. No CR/LF."
+      "pattern": "^(?![\\s\\S]*[\\r\\n])(?!/)(?!(?![Mm][Aa][Pp]:|[Aa][Ll][Ee][Rr][Tt]:)[A-Za-z][A-Za-z0-9+.-]*:)(?!.*[A-Za-z0-9-]+\\.[A-Za-z0-9.-]+:\\d)(?!.*://)[A-Za-z0-9._:#/=-]{1,128}$",
+      "description": "Relative path#digest, a short token, or allowlisted map: / alert:. Any other scheme: prefix is invalid, as is dotted-host:port anywhere in the value. No leading slash. No CR/LF."
     },
     "detail": {
       "type": "string",
-      "maxLength": 240
+      "maxLength": 240,
+      "pattern": "^(?![\\s\\S]*[\\r\\n])",
+      "description": "Short, already-redacted note. No CR/LF."
     },
     "severity": {
       "type": "string",
@@ -117,7 +119,8 @@
         "ts": {
           "type": "string",
           "format": "date-time",
-          "description": "RFC 3339. UTC Z or a numeric offset; fractional seconds allowed."
+          "pattern": "^(?![\\s\\S]*[\\r\\n])\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$",
+          "description": "RFC 3339. UTC Z or a numeric offset; fractional seconds allowed. No CR/LF."
         },
         "ref": { "$ref": "#/$defs/ref" },
         "id": { "$ref": "#/$defs/eventId" },
