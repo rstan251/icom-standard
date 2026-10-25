@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/rstan251/icom-standard/schemas/buzz-event.schema.json",
+  "title": "ICOM Buzz event envelope",
+  "description": "Team-channel webhook body for ICOM, review-verdict, and ticket-migration events. v=1.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["v", "source", "event"],
+  "properties": {
+    "v": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Envelope version. Current producers send 1."
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9-]{0,62}$"
+    },
+    "event": { "$ref": "#/$defs/event" }
+  },
+  "$defs": {
+    "agent": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9]{1,7}(,[A-Z][A-Z0-9]{1,7})*$",
+      "description": "Codebook agent code, or a comma list for to=."
+    },
+    "ticket": {
+      "type": "string",
+      "pattern": "^#?(T-[A-Za-z0-9._-]+|iro-[0-9a-f]{8}|PLT-[0-9]+)$"
+    },
+    "eventId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{20}$",
+      "description": "First 20 hex digits of SHA-256(type || source-key)."
+    },
+    "ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:#-]{1,128}$"
+    },
+    "detail": {
+      "type": "string",
+      "maxLength": 240
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "ticket", "verb", "from", "to", "ts", "ref", "id"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["icom", "gauntlet-verdict", "plt19-migration"]
+        },
+        "ticket": { "$ref": "#/$defs/ticket" },
+        "verb": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "from": { "$ref": "#/$defs/agent" },
+        "to": { "$ref": "#/$defs/agent" },
+        "ts": { "type": "string", "format": "date-time" },
+        "ref": { "$ref": "#/$defs/ref" },
+        "id": { "$ref": "#/$defs/eventId" },
+        "status": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "detail": { "$ref": "#/$defs/detail" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "icom" } }, "required": ["type"] },
+          "then": {
+            "required": ["status"],
+            "properties": {
+              "verb": {
+                "enum": ["GO", "HOLD", "DONE", "BLOCKED", "REC", "FYI", "ASK", "ACK", "NAK"]
+              },
+              "status": {
+                "type": "string",
+                "pattern": "^(SENT|SPOOL|FAIL|REJECT|NAK-[A-Za-z0-9-]+)$"
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "gauntlet-verdict" } }, "required": ["type"] },
+          "then": {
+            "properties": {
+              "verb": {
+                "enum": ["PASS", "FAIL", "BLOCKED", "PASS-COND", "UNKNOWN"]
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "plt19-migration" } }, "required": ["type"] },
+          "then": {
+            "properties": {
+              "verb": {
+                "enum": ["DRYRUN", "IMPORT", "SPOTCHECK", "STATE", "DONE", "FAIL"]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

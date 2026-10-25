@@ -1,0 +1,16 @@
+{
+  "v": 1,
+  "source": "team-notify",
+  "event": {
+    "type": "icom",
+    "ticket": "#T-1234",
+    "verb": "GO",
+    "from": "LEAD",
+    "to": "CTO",
+    "ts": "2026-10-25T19:00:00Z",
+    "ref": "m01ab23cd45ef",
+    "id": "4d3c2b1a0f9e8d7c6b5a",
+    "status": "SENT",
+    "detail": "ops.deploy nx=CTO:review"
+  }
+}

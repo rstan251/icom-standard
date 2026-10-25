@@ -1,0 +1,16 @@
+{
+  "v": 1,
+  "source": "team-notify",
+  "event": {
+    "type": "plt19-migration",
+    "ticket": "PLT-19",
+    "verb": "DRYRUN",
+    "from": "CTO",
+    "to": "LEAD",
+    "ts": "2026-10-25T19:10:00Z",
+    "ref": "map:batch-01",
+    "id": "c1d2e3f4a5b60718293a",
+    "status": "SENT",
+    "detail": "n=12"
+  }
+}

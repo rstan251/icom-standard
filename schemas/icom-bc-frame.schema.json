@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/rstan251/icom-standard/schemas/icom-bc-frame.schema.json",
+  "title": "ICOM-BC/1 logical frame",
+  "description": "Structured form of one BitChat payload frame. Wire text is IC1 S <line> or IC1 F <msgid> <i>/<n> <chunk>.",
+  "oneOf": [
+    { "$ref": "#/$defs/single" },
+    { "$ref": "#/$defs/fragment" }
+  ],
+  "$defs": {
+    "single": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["v", "kind", "line"],
+      "properties": {
+        "v": { "type": "integer", "const": 1 },
+        "kind": { "type": "string", "const": "single" },
+        "line": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 4096,
+          "pattern": "^@[A-Z][A-Z0-9]{1,7}>ICOM>[A-Z][A-Z0-9]{1,7}(,[A-Z][A-Z0-9]{1,7})* P[0-3] "
+        },
+        "wire": {
+          "type": "string",
+          "description": "Optional exact BitChat body. Must equal 'IC1 S ' + line."
+        }
+      }
+    },
+    "fragment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["v", "kind", "msgid", "index", "total", "chunk"],
+      "properties": {
+        "v": { "type": "integer", "const": 1 },
+        "kind": { "type": "string", "const": "fragment" },
+        "msgid": { "type": "string", "pattern": "^[0-9a-f]{8}$" },
+        "index": { "type": "integer", "minimum": 1, "maximum": 16 },
+        "total": { "type": "integer", "minimum": 1, "maximum": 16 },
+        "chunk": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "wire": {
+          "type": "string",
+          "description": "Optional exact BitChat body."
+        }
+      }
+    }
+  }
+}

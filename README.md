@@ -38,5 +38,7 @@ Prepend `adopt/HDR.txt` to the top of the agent's profile/system prompt. Then us
 - `adopt/HDR.txt` — paste-in header for agent profiles
 - `CONTRIBUTING.md`, `LICENSE` (MIT)
 - `v1.1/` — ICOM v1.1 spec and reference expander
+- `spec/bitchat-payload.md` — one ICOM line as a BitChat (mesh/BLE) payload
+- `spec/buzz-event-schema.md` — team-channel event envelope (`schemas/buzz-event.schema.json`)
 
 Client/lane codes in this repo are generic placeholders.
