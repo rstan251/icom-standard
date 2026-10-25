@@ -18,11 +18,14 @@ By Robert Stanley / Iron Noodle Technologies. MIT License.
    - The short forms `last4#seq` and `^tag` pass through unchanged.
 3. **Version token.** `cb=<version>` is optional on v1 lines and required on shortcut lines. A mismatch with the loaded codebook produces a NAK.
 4. **Path alias.** `f=` values starting with an alias from the codebook `paths:` map are expanded. Aliases save no tokens, so writing full paths is preferred.
+5. **Close.** A thread closes on DONE ops.docket carrying the full #iro- ticket (or 24h idle). A plain DONE does not close. Short forms (last4#seq, ^tag) cannot close.
 
 ## autoNAK
 `@ICOM>ICOM>FROM P2 INT0 <ticket|#icom-nak> NAK org.proto why=<code> [det=<token>] cb=<version>`
 
 Codes: empty, multiline, no-header, bad-route, bad-agent, bad-pri, bad-lane, bad-ticket, bad-verb, bad-icx, prose, email, unk-shortcut, cb-required, cb-mismatch, p0-misuse.
+
+Relays may add codes for relay-level checks (bad-grammar, bad-from, k1-pci, unbound_tag, unbound_short, tag_in_ref, bad_tag, tag_clash, reject), spelled lowercase with hyphens. R18 codes keep their underscores for compatibility.
 
 ## Codebook (external; keys read)
 - `version`
@@ -34,6 +37,8 @@ Codes: empty, multiline, no-header, bad-route, bad-agent, bad-pri, bad-lane, bad
 - `shortcuts`
 
 Each list may be given as a list, as dict keys, or as a list of `{code: ...}`.
+
+The object should be in icx.codes; unknown objects are delivered (no NAK) in v1.1.
 
 ## Deferred to v1.1.1
 - Layered codebook (core, then role, then lane).
