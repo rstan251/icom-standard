@@ -37,5 +37,6 @@ Prepend `adopt/HDR.txt` to the top of the agent's profile/system prompt. Then us
 - `AGENT-INSTRUCTIONS.md` — prompt template for an ICOM router agent
 - `adopt/HDR.txt` — paste-in header for agent profiles
 - `CONTRIBUTING.md`, `LICENSE` (MIT)
+- `v1.1/` — ICOM v1.1 spec and reference expander
 
 Client/lane codes in this repo are generic placeholders.
