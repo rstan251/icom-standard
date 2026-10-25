@@ -27,7 +27,8 @@ spec defines:
 2. Signed-identity tokens: agent `sts` / `nc` / `sig`, hub `ts` / `hsig`.
 3. UTF-8 encoding, a size budget for small BLE writes, and a compact
    frame with optional ICOM-level fragmentation.
-4. Validation order, NAK codes, NAK safety, mesh dedupe, and hop cap.
+4. Validation order, NAK codes, NAK safety, mesh dedupe, and a
+   frame-level hop cap (not a signed line token).
 
 A BitChat client that does not implement this spec MUST treat the body
 as ordinary chat and MUST NOT guess an ICOM parse.
@@ -49,7 +50,9 @@ BitChat envelope (routing, TTL, Noise, peer ids)     -- out of scope
   exists so a receiver can reassemble an ICOM line even when the
   carrier does not, or when the local write budget is smaller.
 - Relays MUST NOT strip, reorder, or normalize ICOM tokens. Signatures
-  cover the line bytes.
+  cover the line bytes. Hop count lives on the **frame**, not the line;
+  a forward increments the frame hop and leaves the signed line
+  untouched.
 
 ## 3. ICOM line
 
@@ -196,7 +199,7 @@ and attach `ts=` + `hsig=` on the copy it emits.
 | `MAX_LINE` | 1024 octets | Max reassembled ICOM line (router cap). Oversize → `bc-oversize`. |
 | `MAX_FRAGS` | 16 | More → `bc-oversize`. |
 | `FRAG_TTL` | 30 s | Incomplete fragment set → `bc-frag-timeout`. |
-| `HOP_CAP` | 8 | Application hop count. At 8, silent drop. |
+| `HOP_CAP` | 8 | Frame hop count. At 8, silent drop. |
 | `MID_TTL` | 600 s | Mesh message-id dedupe window. |
 | `MID_CAP` | 4096 | Mesh dedupe entries. Oldest expire first. |
 
@@ -222,17 +225,18 @@ of the frame, so `|` is not a delimiter.
 
 ```
 frame       = single / fragment
-single      = %s"IC1" SP %s"S" SP icom-line
-fragment    = %s"IC1" SP %s"F" SP msgid SP index "/" total SP chunk
+single      = %s"IC1" SP %s"S" [SP hop-tok] SP icom-line
+fragment    = %s"IC1" SP %s"F" SP msgid SP index "/" total [SP hop-tok] SP chunk
+hop-tok     = %s"h=" hop
+hop         = %x30-38           ; 0..8; frame only, never on the ICOM line
 
-msgid       = 8HEXDIG
+msgid       = 16HEXDIG          ; SHA-256(line)[:16], 64-bit
 index       = 1*2DIGIT          ; 1-based
 total       = 1*2DIGIT          ; 1..16
 chunk       = 1*utf8-no-crlf    ; UTF-8 remainder; may start with SP
 
 icom-line   = "@" agent %s">ICOM>" recips SP pri SP lane SP ticket
               SP verb [SP verb] SP icx-code *(SP kv)
-              [SP %s"hop=" hop]
               [SP sig-tail]
 
 recips      = agent *("," agent)
@@ -243,11 +247,10 @@ ticket      = "#" 1*(ALPHA / DIGIT / "-" / "_" / ".")
 verb        = %s"GO" / %s"HOLD" / %s"DONE" / %s"BLOCKED"
               / %s"REC" / %s"FYI" / %s"ASK" / %s"ACK" / %s"NAK"
 icx-code    = 1*lcalpha *("." 1*lcalpha / "~" 1*lcalpha)
-kv          = key "=" kv-val    ; key is not sts / nc / sig / hsig / ts / hop
+kv          = key "=" kv-val    ; key is not sts / nc / sig / hsig / ts
 key         = 1*(lcalpha / DIGIT / "-" / "_")
 kv-val      = 1*unquoted / DQUOTE *(%x20-21 / %x23-7E) DQUOTE
 unquoted    = %x21-7E           ; printable, including "|"; no SP
-hop         = %x30-38           ; 0..8
 
 sig-tail    = agent-sig / hub-sig
 agent-sig   = %s"sts=" 10DIGIT SP %s"nc=" nonce16 SP
@@ -273,21 +276,27 @@ lcalpha      = %x61-7A
 UPALPHA      = %x41-5A
 ```
 
-`msgid` is the first 8 lowercase hex digits of `SHA-256(UTF-8 ICOM
-line)`. It only correlates fragments and mesh dedupe. It is not a secret.
+`msgid` is the first 16 lowercase hex digits of `SHA-256(UTF-8 ICOM
+line)` (64 bits). It only correlates fragments and mesh dedupe. It is
+not a secret.
 
 Logical JSON (same meaning as the text frame; schema at
 `schemas/icom-bc-frame.schema.json`):
 
 ```
-{ "v": 1, "kind": "single", "line": "<icom-line>" }
-{ "v": 1, "kind": "fragment", "msgid": "<8hex>", "index": 1, "total": 2, "chunk": "..." }
+{ "v": 1, "kind": "single", "hop": 0, "line": "<icom-line>" }
+{ "v": 1, "kind": "fragment", "hop": 0, "msgid": "<16hex>", "index": 1, "total": 2, "chunk": "..." }
 ```
 
-Wire mapping:
+`hop` is a frame field. It MUST NOT appear as a `key=val` on the ICOM
+line, and it is not covered by `M`. Missing `hop` means 0. JSON Schema
+`maxLength` on `line`/`chunk` is a character count; the spec cap is
+1024 UTF-8 **octets**.
 
-- single → `IC1 S ` + `line`
-- fragment → `IC1 F ` + `msgid` + ` ` + `index` + `/` + `total` + ` ` + `chunk`
+Wire mapping (`h=N` omitted when hop is 0):
+
+- single → `IC1 S ` + optional `h=<hop> ` + `line`
+- fragment → `IC1 F ` + `msgid` + ` ` + `index` + `/` + `total` + optional ` h=<hop>` + ` ` + `chunk`
 
 ### 5.2 Optional binary prefix
 
@@ -297,7 +306,8 @@ Implementations that put ICOM in a typed binary payload MAY use:
 magic[3] = "IC1"
 ver_u8   = 1
 flags_u8 = bit0 fragment; bit1 last-fragment
-if fragment: msgid_u32be, index_u8 (0-based), total_u8, then chunk
+hop_u8   = 0..8          ; frame hop; not part of the signed line
+if fragment: msgid_u64be, index_u8 (0-based), total_u8, then chunk
 else: UTF-8 icom-line
 ```
 
@@ -312,12 +322,14 @@ apply ICOM and signature checks. First failure wins.
 
 ### 6.1 Mesh dedupe and hop cap
 
-After reassembly, `mid` = `msgid` (or `SHA-256(line)[:8]` on a single
+After reassembly, `mid` = `msgid` (or `SHA-256(line)[:16]` on a single
 frame). Cache `(mid → expiry)`. Window `MID_TTL` = 600 s, cap
 `MID_CAP` = 4096. A repeat inside the window is a **silent drop**.
 
-`hop=` is 0 at the origin (missing means 0). Each ICOM-BC forward
-increments it. `hop >= HOP_CAP` (8) is a **silent drop**. Do not NAK.
+Frame `hop` is 0 at the origin (missing means 0). Each ICOM-BC forward
+increments the **frame** hop only. The ICOM line, including `sig` /
+`hsig`, is copied byte-for-byte. `hop >= HOP_CAP` (8) is a **silent
+drop**. Do not NAK.
 
 ### 6.2 NAK shape
 
@@ -390,7 +402,9 @@ there). The lines below are those vectors.
 @LEAD>ICOM>CTO P2 CL01 #T-1234 FYI org.proto n=1
 ```
 
-Wire: `IC1 S ` plus that line. Fits in `SOFT_BUDGET`. In `enforce`
+Wire: `IC1 S ` plus that line (frame hop omitted, meaning 0). A
+forwarded copy is `IC1 S h=2 ` plus the **same** line; the hop is
+never written onto the ICOM line. Fits in `SOFT_BUDGET`. In `enforce`
 mode this is `sig-missing`.
 
 ### 7.2 Single-frame signed GO (agent grammar)
@@ -432,12 +446,12 @@ this NAK.
 
 ### 7.4 Fragmented ASK
 
-Role `QC`, `kid=12d4819fcc5f`. `msgid=758c7a56` =
-`SHA-256(full line)[:8]`.
+Role `QC`, `kid=12d4819fcc5f`. `msgid=758c7a56aab911a7` =
+`SHA-256(full line)[:16]`. Frame hop omitted (0).
 
 ```
-IC1 F 758c7a56 1/2 @QC>ICOM>LEAD P1 CL01 #T-5678 ASK qa.review ask=APPROVE|HOLD why=tests,lint
-IC1 F 758c7a56 2/2  n=3 sts=1792954800 nc=AAAAAAAAAAAAAAAA sig=ed25519:12d4819fcc5f:zzNnefQsozgYFeEd8ee0F1cCq6N1T4t8Y1MdRCBf438l6Py8MExKyE_nviQVc9AK3bu30XeErn_EfugX6eKnCw
+IC1 F 758c7a56aab911a7 1/2 @QC>ICOM>LEAD P1 CL01 #T-5678 ASK qa.review ask=APPROVE|HOLD why=tests,lint
+IC1 F 758c7a56aab911a7 2/2  n=3 sts=1792954800 nc=AAAAAAAAAAAAAAAA sig=ed25519:12d4819fcc5f:zzNnefQsozgYFeEd8ee0F1cCq6N1T4t8Y1MdRCBf438l6Py8MExKyE_nviQVc9AK3bu30XeErn_EfugX6eKnCw
 ```
 
 Chunk 2 starts with SP so reassembly restores the `key=val` separator.
@@ -450,9 +464,10 @@ each ICOM line to one UTF-8 line of at most 1024 octets, uses agent
 and fragments only when the single frame would exceed the budget.
 
 A consumer is conformant if it implements section 6 in order (including
-NAK safety, 600 s / 4096 mid dedupe, hop cap 8, and receiver-clock
-freshness), ignores unknown future `key=val` tokens, and never logs
-`sig`, `nc`, or key bytes (kid only).
+NAK safety, 600 s / 4096 mid dedupe, frame hop cap 8, and receiver-clock
+freshness), ignores unknown future `key=val` tokens, never rewrites the
+signed line to carry hop, and never logs `sig`, `nc`, or key bytes
+(kid only).
 
 JSON Schema for the logical frame: `schemas/icom-bc-frame.schema.json`.
 Examples: `schemas/examples/icom-bc-*.json`. Vectors:

@@ -2,12 +2,18 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/rstan251/icom-standard/schemas/icom-bc-frame.schema.json",
   "title": "ICOM-BC/1 logical frame",
-  "description": "Structured form of one BitChat payload frame. Wire text is IC1 S <line> or IC1 F <msgid> <i>/<n> <chunk>. MAX_LINE is 1024.",
+  "description": "Structured form of one BitChat payload frame. Wire text is IC1 S [h=N ]<line> or IC1 F <msgid16> <i>/<n> [h=N ]<chunk>. hop lives on the frame, never on the ICOM line. JSON Schema maxLength is a Unicode character count; the spec limit is 1024 UTF-8 octets (enforced by scripts/validate_schemas.py).",
   "oneOf": [
     { "$ref": "#/$defs/single" },
     { "$ref": "#/$defs/fragment" }
   ],
   "$defs": {
+    "hop": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 8,
+      "description": "Frame/carrier hop count. Missing means 0. Forwards increment this field only. Not part of the signed ICOM line."
+    },
     "single": {
       "type": "object",
       "additionalProperties": false,
@@ -15,16 +21,22 @@
       "properties": {
         "v": { "type": "integer", "const": 1 },
         "kind": { "type": "string", "const": "single" },
+        "hop": { "$ref": "#/$defs/hop" },
         "line": {
           "type": "string",
           "minLength": 8,
           "maxLength": 1024,
-          "pattern": "^@[A-Z][A-Z0-9]{1,7}>ICOM>[A-Z][A-Z0-9]{1,7}(,[A-Z][A-Z0-9]{1,7})* P[0-3] "
+          "description": "maxLength is characters. Octet cap is 1024 UTF-8 bytes.",
+          "allOf": [
+            { "pattern": "^[^\\r\\n]{8,1024}$" },
+            { "pattern": "^@[A-Z][A-Z0-9]{1,7}>ICOM>[A-Z][A-Z0-9]{1,7}(,[A-Z][A-Z0-9]{1,7})* P[0-3] " }
+          ]
         },
         "wire": {
           "type": "string",
-          "maxLength": 1030,
-          "description": "Optional exact BitChat body. Must equal 'IC1 S ' + line."
+          "maxLength": 1040,
+          "pattern": "^[^\\r\\n]+$",
+          "description": "Optional exact BitChat body. IC1 S [h=N ]<line>."
         }
       }
     },
@@ -35,16 +47,42 @@
       "properties": {
         "v": { "type": "integer", "const": 1 },
         "kind": { "type": "string", "const": "fragment" },
-        "msgid": { "type": "string", "pattern": "^[0-9a-f]{8}$" },
+        "hop": { "$ref": "#/$defs/hop" },
+        "msgid": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
         "index": { "type": "integer", "minimum": 1, "maximum": 16 },
         "total": { "type": "integer", "minimum": 1, "maximum": 16 },
-        "chunk": { "type": "string", "minLength": 1, "maxLength": 1024 },
+        "chunk": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": "^[^\\r\\n]+$",
+          "description": "maxLength is characters. Octet cap is 1024 UTF-8 bytes. No CR/LF."
+        },
         "wire": {
           "type": "string",
-          "maxLength": 1100,
+          "maxLength": 1120,
+          "pattern": "^[^\\r\\n]+$",
           "description": "Optional exact BitChat body."
         }
-      }
+      },
+      "allOf": [
+        { "if": { "properties": { "total": { "const": 1 } }, "required": ["total"] }, "then": { "properties": { "index": { "maximum": 1 } } } },
+        { "if": { "properties": { "total": { "const": 2 } }, "required": ["total"] }, "then": { "properties": { "index": { "maximum": 2 } } } },
+        { "if": { "properties": { "total": { "const": 3 } }, "required": ["total"] }, "then": { "properties": { "index": { "maximum": 3 } } } },
+        { "if": { "properties": { "total": { "const": 4 } }, "required": ["total"] }, "then": { "properties": { "index": { "maximum": 4 } } } },
+        { "if": { "properties": { "total": { "const": 5 } }, "required": ["total"] }, "then": { "properties": { "index": { "maximum": 5 } } } },
+        { "if": { "properties": { "total": { "const": 6 } }, "required": ["total"] }, "then": { "properties": { "index": { "maximum": 6 } } } },
+        { "if": { "properties": { "total": { "const": 7 } }, "required": ["total"] }, "then": { "properties": { "index": { "maximum": 7 } } } },
+        { "if": { "properties": { "total": { "const": 8 } }, "required": ["total"] }, "then": { "properties": { "index": { "maximum": 8 } } } },
+        { "if": { "properties": { "total": { "const": 9 } }, "required": ["total"] }, "then": { "properties": { "index": { "maximum": 9 } } } },
+        { "if": { "properties": { "total": { "const": 10 } }, "required": ["total"] }, "then": { "properties": { "index": { "maximum": 10 } } } },
+        { "if": { "properties": { "total": { "const": 11 } }, "required": ["total"] }, "then": { "properties": { "index": { "maximum": 11 } } } },
+        { "if": { "properties": { "total": { "const": 12 } }, "required": ["total"] }, "then": { "properties": { "index": { "maximum": 12 } } } },
+        { "if": { "properties": { "total": { "const": 13 } }, "required": ["total"] }, "then": { "properties": { "index": { "maximum": 13 } } } },
+        { "if": { "properties": { "total": { "const": 14 } }, "required": ["total"] }, "then": { "properties": { "index": { "maximum": 14 } } } },
+        { "if": { "properties": { "total": { "const": 15 } }, "required": ["total"] }, "then": { "properties": { "index": { "maximum": 15 } } } },
+        { "if": { "properties": { "total": { "const": 16 } }, "required": ["total"] }, "then": { "properties": { "index": { "maximum": 16 } } } }
+      ]
     }
   }
 }

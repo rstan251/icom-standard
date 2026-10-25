@@ -45,10 +45,14 @@ EXAMPLES = SCHEMAS / "examples"
 FIXTURES = SCHEMAS / "fixtures"
 TEAM = FIXTURES / "team-notify"
 NEGATIVE = FIXTURES / "negative"
+NEG_FRAME = FIXTURES / "negative-frame"
 VECTORS = SCHEMAS / "vectors" / "icom-sig-v1.json"
 
 BUZZ_SCHEMA = SCHEMAS / "buzz-event.schema.json"
 FRAME_SCHEMA = SCHEMAS / "icom-bc-frame.schema.json"
+
+MAX_LINE_OCTETS = 1024
+MID_HEX = 16
 
 TS_RE = re.compile(
     r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
@@ -59,9 +63,24 @@ KEY_RE = re.compile(
     r"\b(?:sk-[A-Za-z0-9]{8,}|gh[pousr]_[A-Za-z0-9]{8,}"
     r"|xox[abprs]-[A-Za-z0-9-]{8,}|AKIA[0-9A-Z]{12,})\b"
 )
-LONG_TOKEN_RE = re.compile(r"\b[A-Za-z0-9_\-+/]{40,}={0,2}")
+LONG_TOKEN_RE = re.compile(r"\b[A-Za-z0-9_+-]{40,}={0,2}")
 ED25519_TAIL_RE = re.compile(r"ed25519:[0-9a-f]{12}:[A-Za-z0-9_-]{86}")
+PUB43_RE = re.compile(r"\b[A-Za-z0-9_-]{43}\b")
+BARE_SIG_RE = re.compile(r"\b[A-Za-z0-9_-]{86}\b")
 IRO_ID_RE = re.compile(r"#?iro-[0-9a-fA-F]{8}\b")
+PLT19_TICKET_RE = re.compile(r"\bPLT-19\b")
+EMAIL_RE = re.compile(r"[\w.*+-]+@[\w-]+(?:\.[\w-]+)+")
+ALLOW_EMAIL_DOMAIN = re.compile(r"@(?:example|invalid|test)\.(?:com|org|net)\b", re.I)
+INTERNAL_DOMAIN_RE = re.compile(
+    r"(?i)(?:ironnoodle\.com|\b[\w-]+\.(?:internal|local|lan|corp)\b)"
+)
+VENDOR_RE = re.compile(
+    r"(?i)\b(?:cursor|openai|anthropic|claude|chatgpt|gpt-[0-9]|grok|"
+    r"gemini|copilot|midjourney|llama-?[0-9]|mistral)\b"
+)
+ALLOW_DOMAIN_LINE = re.compile(
+    r"example\.(?:com|org|net)|json-schema\.org|github\.com", re.I
+)
 
 HASH_TYPE = {
     "icom": "icom",
@@ -102,6 +121,30 @@ def expect_schema_fail(schema_path: Path, example_path: Path) -> str | None:
     return "negative %s unexpectedly passed" % example_path.name
 
 
+def frame_wire(inst: dict) -> str:
+    hop = inst.get("hop", 0)
+    hop_tok = ("h=%d " % hop) if hop else ""
+    kind = inst.get("kind")
+    if kind == "single":
+        return "IC1 S " + hop_tok + inst["line"]
+    if kind == "fragment":
+        if hop:
+            return "IC1 F %s %d/%d h=%d %s" % (
+                inst["msgid"],
+                inst["index"],
+                inst["total"],
+                hop,
+                inst["chunk"],
+            )
+        return "IC1 F %s %d/%d %s" % (
+            inst["msgid"],
+            inst["index"],
+            inst["total"],
+            inst["chunk"],
+        )
+    raise ValueError("unknown kind")
+
+
 def check_wire(example_path: Path) -> str | None:
     inst = load_json(example_path)
     wire = inst.get("wire")
@@ -109,23 +152,36 @@ def check_wire(example_path: Path) -> str | None:
         return None
     if "\n" in wire or "\r" in wire:
         return "%s: wire contains a newline" % example_path.name
-    kind = inst.get("kind")
-    if kind == "single":
-        expect = "IC1 S " + inst["line"]
-        if wire != expect:
-            return "%s: wire != 'IC1 S ' + line" % example_path.name
-        return None
-    if kind == "fragment":
-        expect = "IC1 F %s %d/%d %s" % (
-            inst["msgid"],
-            inst["index"],
-            inst["total"],
-            inst["chunk"],
-        )
-        if wire != expect:
-            return "%s: wire != IC1 F mapping" % example_path.name
-        return None
-    return "%s: unknown kind" % example_path.name
+    try:
+        expect = frame_wire(inst)
+    except (KeyError, ValueError) as exc:
+        return "%s: %s" % (example_path.name, exc)
+    if wire != expect:
+        return "%s: wire != frame mapping" % example_path.name
+    return None
+
+
+def check_octets(example_path: Path) -> str | None:
+    inst = load_json(example_path)
+    for key in ("line", "chunk"):
+        if key not in inst:
+            continue
+        n = len(inst[key].encode("utf-8"))
+        if n > MAX_LINE_OCTETS:
+            return "%s: %s is %d octets (cap %d)" % (
+                example_path.name, key, n, MAX_LINE_OCTETS
+            )
+        if "\n" in inst[key] or "\r" in inst[key]:
+            return "%s: %s contains CR/LF" % (example_path.name, key)
+    if inst.get("kind") == "fragment":
+        if inst["index"] > inst["total"]:
+            return "%s: index > total" % example_path.name
+        if "hop" in inst.get("chunk", "") or " hop=" in inst.get("chunk", ""):
+            return "%s: hop leaked into chunk" % example_path.name
+    line = inst.get("line", "")
+    if re.search(r"(?:^|\s)hop=", line):
+        return "%s: hop= on signed ICOM line" % example_path.name
+    return None
 
 
 def check_buzz_coverage() -> str | None:
@@ -176,9 +232,11 @@ def check_fragment_pair() -> str | None:
         return "reassembled fragment is not an ICOM line"
     if "\n" in line or "\r" in line:
         return "reassembled fragment contains a newline"
-    expect = hashlib.sha256(line.encode()).hexdigest()[:8]
+    expect = hashlib.sha256(line.encode()).hexdigest()[:MID_HEX]
     if a["msgid"] != expect:
-        return "fragment msgid != SHA-256(line)[:8]"
+        return "fragment msgid != SHA-256(line)[:%d]" % MID_HEX
+    if len(a["msgid"]) != MID_HEX:
+        return "msgid is not %d hex chars" % MID_HEX
     return None
 
 
@@ -248,47 +306,99 @@ def check_vectors() -> list[str]:
         if vec["sig"] not in vec["line"]:
             hits.append("vectors: %s sig not on line" % vec["id"])
         if "msgid" in vec:
-            mid = hashlib.sha256(vec["line"].encode()).hexdigest()[:8]
+            mid = hashlib.sha256(vec["line"].encode()).hexdigest()[:MID_HEX]
             if mid != vec["msgid"]:
                 hits.append("vectors: %s msgid mismatch" % vec["id"])
+        if re.search(r"(?:^|\s)hop=", vec["line"]) or re.search(
+            r"(?:^|\s)hop=", vec["joined"]
+        ):
+            hits.append("vectors: %s hop= on signed line" % vec["id"])
     return hits
 
 
 def check_nak_shape() -> str | None:
     line = load_json(EXAMPLES / "icom-bc-nak.json")["line"]
-    if " cb=" not in " " + line and " cb=" not in line:
-        if "cb=" not in line:
-            return "NAK example missing cb="
+    if "cb=" not in line:
+        return "NAK example missing cb="
     if "hsig=" not in line:
         return "NAK example missing hsig="
     if "ts=" not in line:
         return "NAK example missing ts="
     if "sts=" in line or " nc=" in line or " sig=" in line:
         return "NAK example still has agent sig tokens"
+    if re.search(r"(?:^|\s)hop=", line):
+        return "NAK example has hop= on the line"
+    return None
+
+
+def check_producer_alerts() -> str | None:
+    p1 = load_json(TEAM / "09-icom-alert-upper-p1.json")["event"]
+    p3 = load_json(TEAM / "10-icom-alert-upper-p3.json")["event"]
+    dash = load_json(TEAM / "11-dash-fallback.json")["event"]
+    if p1.get("severity") is not None:
+        return "09-icom-alert-upper-p1 must omit severity"
+    if p1.get("status") != "P1" or p1.get("verb") != "HUB-KEY-FAIL-CLOSED":
+        return "09-icom-alert-upper-p1 is not the producer uppercase/P1 form"
+    if p3.get("severity") is not None:
+        return "10-icom-alert-upper-p3 must omit severity"
+    if p3.get("status") != "P3" or p3.get("verb") != "HUB-KEY-RESTORED":
+        return "10-icom-alert-upper-p3 is not the producer uppercase/P3 form"
+    for key in ("from", "to", "ticket", "verb"):
+        if dash.get(key) != "-":
+            return "11-dash-fallback %s is not -" % key
     return None
 
 
 def check_hygiene() -> list[str]:
     hits: list[str] = []
-    roots = [ROOT / "spec", EXAMPLES, TEAM]
+    roots = [
+        ROOT / "spec",
+        ROOT / "README.md",
+        SCHEMAS / "buzz-event.schema.json",
+        SCHEMAS / "icom-bc-frame.schema.json",
+        SCHEMAS / "vectors",
+        EXAMPLES,
+        TEAM,
+        NEGATIVE,
+        NEG_FRAME,
+        FIXTURES / "id-checks.json",
+    ]
+    files: list[Path] = []
     for root in roots:
-        for path in sorted(root.rglob("*")):
-            if not path.is_file():
-                continue
-            text = path.read_text(encoding="utf-8")
-            rel = path.relative_to(ROOT)
-            for i, line in enumerate(text.splitlines(), 1):
-                if IPV4_RE.search(line):
-                    hits.append("%s:%d ipv4" % (rel, i))
-                if PEM_RE.search(line):
-                    hits.append("%s:%d pem" % (rel, i))
-                if KEY_RE.search(line):
-                    hits.append("%s:%d key-prefix" % (rel, i))
-                if IRO_ID_RE.search(line):
-                    hits.append("%s:%d iro-id" % (rel, i))
-                cleaned = ED25519_TAIL_RE.sub(" ", line)
-                if LONG_TOKEN_RE.search(cleaned):
-                    hits.append("%s:%d long-token" % (rel, i))
+        if root.is_file():
+            files.append(root)
+        elif root.is_dir():
+            files.extend(sorted(p for p in root.rglob("*") if p.is_file()))
+    for path in files:
+        text = path.read_text(encoding="utf-8")
+        rel = path.relative_to(ROOT)
+        in_vectors = "vectors" in path.parts
+        skip_long = "negative" in path.parts or path.name.endswith("-too-long.json")
+        for i, line in enumerate(text.splitlines(), 1):
+            if IPV4_RE.search(line):
+                hits.append("%s:%d ipv4" % (rel, i))
+            if PEM_RE.search(line):
+                hits.append("%s:%d pem" % (rel, i))
+            if KEY_RE.search(line):
+                hits.append("%s:%d key-prefix" % (rel, i))
+            if IRO_ID_RE.search(line):
+                hits.append("%s:%d iro-id" % (rel, i))
+            if PLT19_TICKET_RE.search(line):
+                hits.append("%s:%d internal-ticket" % (rel, i))
+            for m in EMAIL_RE.finditer(line):
+                if not ALLOW_EMAIL_DOMAIN.search(m.group(0)):
+                    hits.append("%s:%d email %s" % (rel, i, m.group(0)))
+            cleaned = ALLOW_DOMAIN_LINE.sub(" ", line)
+            if INTERNAL_DOMAIN_RE.search(cleaned):
+                hits.append("%s:%d internal-domain" % (rel, i))
+            if VENDOR_RE.search(line):
+                hits.append("%s:%d vendor-or-model" % (rel, i))
+            stripped = ED25519_TAIL_RE.sub(" ", line)
+            stripped = BARE_SIG_RE.sub(" ", stripped)
+            if in_vectors:
+                stripped = PUB43_RE.sub(" ", stripped)
+            if not skip_long and LONG_TOKEN_RE.search(stripped):
+                hits.append("%s:%d long-token" % (rel, i))
     return hits
 
 
@@ -300,6 +410,7 @@ def main() -> int:
     frame_examples = sorted(EXAMPLES.glob("icom-bc-*.json"))
     team_fix = sorted(TEAM.glob("*.json"))
     neg_fix = sorted(NEGATIVE.glob("*.json"))
+    neg_frame = sorted(NEG_FRAME.glob("*.json"))
 
     for path in buzz_examples + team_fix:
         checks += 1
@@ -315,9 +426,18 @@ def main() -> int:
         err = check_wire(path)
         if err:
             errors.append(err)
+        checks += 1
+        err = check_octets(path)
+        if err:
+            errors.append(err)
     for path in neg_fix:
         checks += 1
         err = expect_schema_fail(BUZZ_SCHEMA, path)
+        if err:
+            errors.append(err)
+    for path in neg_frame:
+        checks += 1
+        err = expect_schema_fail(FRAME_SCHEMA, path)
         if err:
             errors.append(err)
 
@@ -326,6 +446,7 @@ def main() -> int:
         check_timestamps,
         check_fragment_pair,
         check_nak_shape,
+        check_producer_alerts,
     ):
         checks += 1
         err = fn()

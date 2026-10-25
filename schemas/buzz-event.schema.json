@@ -43,15 +43,15 @@
     },
     "agent": {
       "type": "string",
-      "pattern": "^[A-Za-z][A-Za-z0-9-]{0,15}(,[A-Za-z][A-Za-z0-9-]{0,15})*$",
-      "description": "Agent code, case-insensitive; hyphen allowed; comma list for to=."
+      "pattern": "^(-|[A-Za-z][A-Za-z0-9-]{0,15}(,[A-Za-z][A-Za-z0-9-]{0,15})*)$",
+      "description": "Agent code, case-insensitive; hyphen allowed; comma list for to=. Literal - means missing."
     },
     "ticket": {
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "pattern": "^#?[A-Za-z0-9][A-Za-z0-9._:/-]{0,62}$",
-      "description": "Tracker id, optional leading #. Hyphens and a single-segment dir token are allowed."
+      "pattern": "^(-|#?[A-Za-z0-9][A-Za-z0-9._:/-]{0,62})$",
+      "description": "Tracker id, optional leading #. Literal - means missing."
     },
     "eventId": {
       "type": "string",
@@ -62,8 +62,8 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
-      "pattern": "^[A-Za-z0-9._:#/=-]{1,128}$",
-      "description": "Source pointer. Relative path#digest is allowed; no host prefix."
+      "pattern": "^(?![hH][tT][tT][pP][sS]?:)(?![hH][tT][tT][pP]:)(?![fF][tT][pP]:)(?![sS][sS][hH]:)(?!.*://)(?!/)[A-Za-z0-9._:#/=-]{1,128}$",
+      "description": "Relative path#digest or a short token. No scheme, no host, no leading slash."
     },
     "detail": {
       "type": "string",
@@ -73,16 +73,26 @@
       "type": "string",
       "enum": ["info", "warn", "error", "crit"]
     },
+    "priStatus": {
+      "type": "string",
+      "pattern": "^P[0-3]$",
+      "description": "When set on icom-alert, carries severity as P0..P3 and severity may be omitted."
+    },
     "upperVerb": {
       "type": "string",
-      "pattern": "^[A-Z][A-Z0-9_-]{0,31}$",
-      "description": "Any uppercase verb. Producers that cannot classify send EVENT."
+      "pattern": "^(-|[A-Z][A-Z0-9_-]{0,31})$",
+      "description": "Any uppercase verb, or - if missing. Unclassified milestones send EVENT."
     },
     "anyVerb": {
       "type": "string",
       "minLength": 1,
       "maxLength": 32,
-      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,31}$"
+      "pattern": "^(-|[A-Za-z][A-Za-z0-9_-]{0,31})$"
+    },
+    "alertVerb": {
+      "type": "string",
+      "pattern": "^([Hh][Uu][Bb]-[Kk][Ee][Yy]-[Ff][Aa][Ii][Ll]-[Cc][Ll][Oo][Ss][Ee][Dd]|[Hh][Uu][Bb]-[Kk][Ee][Yy]-[Rr][Ee][Ss][Tt][Oo][Rr][Ee][Dd]|[Ss][Ii][Gg]-[Ff][Aa][Ii][Ll][Uu][Rr][Ee]|[Hh][Uu][Bb]-[Ss][Ii][Gg][Nn]-[Ss][Kk][Ii][Pp]|-)$",
+      "description": "Alert verbs, case-insensitive. Producer emits uppercase HUB-KEY-FAIL-CLOSED and HUB-KEY-RESTORED."
     },
     "event": {
       "type": "object",
@@ -122,7 +132,7 @@
             "required": ["status"],
             "properties": {
               "verb": {
-                "enum": ["GO", "HOLD", "DONE", "BLOCKED", "REC", "FYI", "ASK", "ACK", "NAK"]
+                "enum": ["GO", "HOLD", "DONE", "BLOCKED", "REC", "FYI", "ASK", "ACK", "NAK", "-"]
               },
               "status": {
                 "type": "string",
@@ -139,7 +149,7 @@
           "then": {
             "properties": {
               "verb": {
-                "enum": ["PASS", "FAIL", "BLOCKED", "PASS-COND", "UNKNOWN"]
+                "enum": ["PASS", "FAIL", "BLOCKED", "PASS-COND", "UNKNOWN", "-"]
               }
             }
           }
@@ -158,17 +168,18 @@
         {
           "if": { "properties": { "type": { "const": "icom-alert" } }, "required": ["type"] },
           "then": {
-            "required": ["severity"],
             "properties": {
-              "verb": {
-                "enum": [
-                  "hub-key-fail-closed",
-                  "hub-key-restored",
-                  "sig-failure",
-                  "hub-sign-skip"
-                ]
+              "verb": { "$ref": "#/$defs/alertVerb" }
+            },
+            "anyOf": [
+              { "required": ["severity"] },
+              {
+                "required": ["status"],
+                "properties": {
+                  "status": { "$ref": "#/$defs/priStatus" }
+                }
               }
-            }
+            ]
           }
         }
       ]

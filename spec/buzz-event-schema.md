@@ -50,17 +50,17 @@ the two schema branches.
 ## 2. Event object
 
 Required on every event: `type`, `ticket`, `verb`, `from`, `to`, `ts`,
-`ref`, `id`. Optional: `status`, `detail`, `severity`. `severity` is
-required on `icom-alert`.
+`ref`, `id`. Optional: `status`, `detail`, `severity`. On `icom-alert`,
+either `severity` is set or `status` is `P0`..`P3` (producer form).
 
 | Field | Type | Rule |
 |---|---|---|
 | `type` | string | Producer: `icom`, `gauntlet`, `plt19`, `icom-alert`. Public aliases `gauntlet-verdict` and `plt19-migration` are accepted and mean the same as `gauntlet` / `plt19`. |
-| `ticket` | string | Tracker id. Optional leading `#`. Letters, digits, `.` `_` `:` `/` `-`. Directory-style fallback tokens (a hyphen or a single `/`) are valid. |
-| `verb` | string | Type-specific (below). |
-| `from` / `to` | string | Agent codes, **case-insensitive**; hyphen allowed (`cl01-bot`). `to` may be a comma list. |
+| `ticket` | string | Tracker id. Optional leading `#`. Letters, digits, `.` `_` `:` `/` `-`. Directory-style fallback tokens are valid. A lone `-` means missing. |
+| `verb` | string | Type-specific (below). A lone `-` means missing. |
+| `from` / `to` | string | Agent codes, **case-insensitive**; hyphen allowed (`cl01-bot`). `to` may be a comma list. A lone `-` means missing. |
 | `ts` | string | RFC 3339. UTC `Z` **or** a numeric offset. Fractional seconds allowed. |
-| `ref` | string | Pointer back to the source record. Relative `path#digest` is allowed. No host prefix. |
+| `ref` | string | Relative `path#digest` or a short token. No scheme, no host (`https://…` is invalid). |
 | `id` | string | Dedupe key, 20 lowercase hex. See §2.5. |
 | `status` | string | Delivery or outcome. Required for `icom`. |
 | `detail` | string | Short, already-redacted note (≤ 240 chars). |
@@ -74,7 +74,7 @@ MUST NOT guess.
 
 One relayed or rejected ICOM line.
 
-- `verb`: `GO` `HOLD` `DONE` `BLOCKED` `REC` `FYI` `ASK` `ACK` `NAK`.
+- `verb`: `GO` `HOLD` `DONE` `BLOCKED` `REC` `FYI` `ASK` `ACK` `NAK`, or `-`.
 - `status`: `SENT` / `SPOOL` / `FAIL` / `REJECT` / `NAK-<code>`.
 - `ref`: message id (short token).
 - `detail`: optional redacted excerpt. Never a signature, nonce, or secret.
@@ -83,7 +83,7 @@ One relayed or rejected ICOM line.
 
 A review verdict changed (new or content-changed).
 
-- `verb`: `PASS` / `FAIL` / `BLOCKED` / `PASS-COND` / `UNKNOWN`.
+- `verb`: `PASS` / `FAIL` / `BLOCKED` / `PASS-COND` / `UNKNOWN`, or `-`.
 - `ticket`: first tracker id cited by the verdict.
 - `ref`: relative path plus a 12-hex content digest, `relpath#sha12`.
 - `status`: optional.
@@ -95,20 +95,24 @@ A ticket-migration milestone.
 - `verb`: any uppercase token (`DRYRUN` `IMPORT` `SPOTCHECK` `STATE`
   `DONE` `FAIL` …). If the producer cannot classify the milestone it
   sends `EVENT`. The verb enum is **not** closed.
-- `ticket`: the migration stream or a migrated id.
+- `ticket`: the migration stream or a migrated id (placeholder `T-9001`).
 - `ref`: batch or run token (`map:batch-01`).
 - `detail`: optional counts or notes (`n=12`), already redacted.
 
 ### 2.4 `type=icom-alert`
 
-Hub / signature operational alerts. `severity` is required.
+Hub / signature operational alerts. Verbs are **case-insensitive**.
+The producer emits uppercase `HUB-KEY-FAIL-CLOSED` and
+`HUB-KEY-RESTORED`. Either `severity` is present, or `status` is
+`P0`..`P3` (that is the producer’s severity channel when `severity`
+is omitted).
 
-| `verb` | When |
+| `verb` (any case) | When |
 |---|---|
-| `hub-key-fail-closed` | Hub signing key is unusable; hub refuses to emit. |
-| `hub-key-restored` | Hub signing key is usable again. |
-| `sig-failure` | A verify failure was recorded (count or sample in `detail`). |
-| `hub-sign-skip` | Hub emitted a line without `hsig=` (mode off, or skip). |
+| `HUB-KEY-FAIL-CLOSED` / `hub-key-fail-closed` | Hub signing key is unusable; hub refuses to emit. |
+| `HUB-KEY-RESTORED` / `hub-key-restored` | Hub signing key is usable again. |
+| `SIG-FAILURE` / `sig-failure` | A verify failure was recorded (count or sample in `detail`). |
+| `HUB-SIGN-SKIP` / `hub-sign-skip` | Hub emitted a line without `hsig=` (mode off, or skip). |
 
 ### 2.5 `id` (literal pipe)
 
@@ -265,7 +269,7 @@ fallback when the milestone is unclassified.
   "source": "team-notify",
   "event": {
     "type": "plt19",
-    "ticket": "PLT-19",
+    "ticket": "T-9001",
     "verb": "EVENT",
     "from": "CTO",
     "to": "LEAD",
@@ -300,10 +304,54 @@ fallback when the milestone is unclassified.
 }
 ```
 
+Producer form (uppercase verb, severity in `status=P1`, no `severity`):
+
+```json
+{
+  "v": 1,
+  "source": "team-notify",
+  "event": {
+    "type": "icom-alert",
+    "ticket": "T-1234",
+    "verb": "HUB-KEY-FAIL-CLOSED",
+    "from": "ICOM",
+    "to": "LEAD",
+    "ts": "2026-10-25T12:15:00.000-07:00",
+    "ref": "alert:hub-key",
+    "id": "e59016f7e500eef1228e",
+    "status": "P1",
+    "detail": "kid=0123456789ab"
+  }
+}
+```
+
 ### 6.5 Text branch
 
 ```json
 {
   "text": "[team-notify] GAUNTLET FAIL T-5678 qc>lead ref=reviews/T-5678.md#a1b2c3d4e5f6"
+}
+```
+
+### 6.6 Missing-field fallback
+
+A lone `-` is valid for `from`, `to`, `ticket`, and `verb` when the
+producer has no value.
+
+```json
+{
+  "v": 1,
+  "source": "team-notify",
+  "event": {
+    "type": "plt19",
+    "ticket": "-",
+    "verb": "-",
+    "from": "-",
+    "to": "-",
+    "ts": "2026-10-25T12:20:00.000-07:00",
+    "ref": "map:batch-01",
+    "id": "cb420a33341dc667c63e",
+    "status": "SENT"
+  }
 }
 ```

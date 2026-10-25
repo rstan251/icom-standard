@@ -3,7 +3,7 @@
   "source": "team-notify",
   "event": {
     "type": "plt19-migration",
-    "ticket": "PLT-19",
+    "ticket": "T-9001",
     "verb": "EVENT",
     "from": "CTO",
     "to": "LEAD",
