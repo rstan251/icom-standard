@@ -78,7 +78,7 @@ class Codebook:
 
 # --- line grammar (v1.1 input). Hop ">ICOM>" optional; PRI, LANE, ticket optional (implied). ---
 HEAD = re.compile(r"^@([A-Z0-9]+)>(?:([A-Z0-9]+)>)?([A-Z0-9]+(?:,[A-Z0-9]+)*)$")
-TICKET = re.compile(r"^(?:#tkt-([0-9a-f]{8})|#([0-9a-f]{8})|([0-9a-f]{4}#[0-9]{1,6})|(\^[a-z0-9]{4,8}))$")
+TICKET = re.compile(r"^(?:#iro-([0-9a-f]{8})|#([0-9a-f]{8})|([0-9a-f]{4}#[0-9]{1,6})|(\^[a-z0-9]{4,8}))$")
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
 KV = re.compile(r"^[a-z][a-z0-9_.-]*=\S*$")
 
@@ -134,7 +134,7 @@ def expand(line, cb, thread=None):
         lane = toks[i]; i += 1
     if i < len(toks) and TICKET.match(toks[i]):
         t = TICKET.match(toks[i])
-        ticket = "#tkt-" + (t.group(1) or t.group(2)) if (t.group(1) or t.group(2)) else toks[i]
+        ticket = "#iro-" + (t.group(1) or t.group(2)) if (t.group(1) or t.group(2)) else toks[i]
         i += 1
     ticket = ticket or st.get("ticket")
     if not ticket: raise Nak("bad-ticket")
@@ -172,7 +172,7 @@ def expand(line, cb, thread=None):
             raise Nak("p0-misuse")
     tail = [expand_paths(t, cb) if t.startswith("f=") else t for t in tail]
     out = "@%s>ICOM>%s %s %s %s %s" % (frm, ",".join(tos), pri, lane, ticket, " ".join(body[:j] + [obj] + tail))
-    if ticket.startswith("#tkt-"):
+    if ticket.startswith("#iro-"):
         thread.put(key, {"ticket": ticket, "pri": pri, "lane": lane})
     return out
 
@@ -182,7 +182,7 @@ def nak_line(line, nak, cb):
     """autoNAK back to sender, relay nak_line shape (+ cb= token)."""
     m = re.match(r"^@([A-Z0-9]+)", (line or "").strip())
     to = m.group(1) if m else "UNK"
-    t = re.search(r"#tkt-[0-9a-f]{8}\b", line or "")
+    t = re.search(r"#iro-[0-9a-f]{8}\b", line or "")
     tk = t.group(0) if t else "#icom-nak"
     out = "@ICOM>ICOM>%s P2 INT0 %s NAK org.proto why=%s" % (to, tk, nak.code)
     if nak.det: out += " det=" + _tok(nak.det)
