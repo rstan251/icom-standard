@@ -1,0 +1,6 @@
+{
+  "v": 1,
+  "kind": "single",
+  "line": "@LEAD>ICOM>CTO P1 INT0 #T-1234 GO ops.deploy nx=CTO:review ts=2026-10-25T12:00:00-07:00 hsig=ed25519:4028bdb5c5bc:UYHuu4uuK7HMOLJ86hi7oDFt6pJbIHrx1yU-fbYskJwblN1xgq9YiUixZIR3mFk2oULRJXsU9Nww29qqCGE0CQ",
+  "wire": "IC1 S @LEAD>ICOM>CTO P1 INT0 #T-1234 GO ops.deploy nx=CTO:review ts=2026-10-25T12:00:00-07:00 hsig=ed25519:4028bdb5c5bc:UYHuu4uuK7HMOLJ86hi7oDFt6pJbIHrx1yU-fbYskJwblN1xgq9YiUixZIR3mFk2oULRJXsU9Nww29qqCGE0CQ"
+}

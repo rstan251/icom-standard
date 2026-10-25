@@ -1,0 +1,15 @@
+{
+  "v": 1,
+  "source": "team-notify",
+  "event": {
+    "type": "ticket-migration",
+    "ticket": "-",
+    "verb": "-",
+    "from": "-",
+    "to": "-",
+    "ts": "2026-10-25T12:20:00.000-07:00",
+    "ref": "map:batch-01",
+    "id": "93be4fc80c8b5be0b193",
+    "status": "SENT"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "v": 1,
+  "source": "team-notify",
+  "event": {
+    "type": "ticket-migration",
+    "ticket": "T-9001",
+    "verb": "EVENT",
+    "from": "ops",
+    "to": "lead",
+    "ts": "2026-10-25T12:00:00Z",
+    "ref": "map:evil.example.com:443/x",
+    "id": "bbbbbbbbbbbbbbbbbbbb"
+  }
+}

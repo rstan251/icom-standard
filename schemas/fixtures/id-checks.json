@@ -1,0 +1,32 @@
+[
+  {
+    "file": "examples/buzz-event-icom.json",
+    "hash_type": "icom",
+    "key": "m01ab23cd45ef"
+  },
+  {
+    "file": "examples/buzz-event-gauntlet-verdict.json",
+    "hash_type": "gauntlet",
+    "key": "reviews/T-5678.md#a1b2c3d4e5f6"
+  },
+  {
+    "file": "examples/buzz-event-ticket-migration.json",
+    "hash_type": "ticket-migration",
+    "key": "map:batch-01"
+  },
+  {
+    "file": "examples/buzz-event-icom-alert.json",
+    "hash_type": "icom-alert",
+    "key": "alert:hub-key"
+  },
+  {
+    "file": "fixtures/team-notify/02-gauntlet.json",
+    "hash_type": "gauntlet",
+    "key": "reviews/T-5678.md#a1b2c3d4e5f6"
+  },
+  {
+    "file": "fixtures/team-notify/05-icom-alert-sig-failure.json",
+    "hash_type": "icom-alert",
+    "key": "alert:sig-failure"
+  }
+]

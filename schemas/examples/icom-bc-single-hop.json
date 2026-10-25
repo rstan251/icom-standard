@@ -1,0 +1,7 @@
+{
+  "v": 1,
+  "kind": "single",
+  "hop": 2,
+  "line": "@LEAD>ICOM>CTO P2 CL01 #T-1234 FYI org.proto n=1",
+  "wire": "IC1 S h=2 @LEAD>ICOM>CTO P2 CL01 #T-1234 FYI org.proto n=1"
+}

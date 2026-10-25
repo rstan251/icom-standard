@@ -1,0 +1,15 @@
+{
+  "v": 1,
+  "source": "team-notify",
+  "event": {
+    "type": "icom-alert",
+    "ticket": "T-1234",
+    "verb": "HUB-KEY-FAIL-CLOSED",
+    "from": "hub",
+    "to": "lead",
+    "ts": "2026-10-25T12:00:00Z",
+    "ref": "alert:evil.example.com:8080",
+    "id": "aaaaaaaaaaaaaaaaaaaa",
+    "severity": "crit"
+  }
+}

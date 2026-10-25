@@ -1,0 +1,17 @@
+{
+  "v": 1,
+  "source": "team-notify",
+  "event": {
+    "type": "icom",
+    "ticket": "T-1234",
+    "verb": "NAK",
+    "from": "ICOM",
+    "to": "lead",
+    "ts": "2026-10-25T12:00:01.125-07:00",
+    "ref": "m01ab23cd45ef",
+    "id": "160b13eeb7091bd7ea95",
+    "status": "NAK-sig-stale",
+    "detail": "why=sig-stale",
+    "severity": "warn"
+  }
+}

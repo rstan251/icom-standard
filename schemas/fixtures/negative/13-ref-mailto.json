@@ -1,0 +1,14 @@
+{
+  "v": 1,
+  "source": "team-notify",
+  "event": {
+    "type": "gauntlet",
+    "ticket": "T-5678",
+    "verb": "FAIL",
+    "from": "qc",
+    "to": "lead",
+    "ts": "2026-10-25T12:05:00Z",
+    "ref": "mailto:x",
+    "id": "89dd4c037538b2c933c7"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "v": 1,
+  "source": "team-notify",
+  "event": {
+    "type": "icom-alert",
+    "ticket": "T-1234",
+    "verb": "HUB-KEY-RESTORED",
+    "from": "ICOM",
+    "to": "LEAD",
+    "ts": "2026-10-25T12:16:00.000-07:00",
+    "ref": "alert:hub-key",
+    "id": "e59016f7e500eef1228e",
+    "status": "P3"
+  }
+}

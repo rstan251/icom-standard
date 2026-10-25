@@ -1,0 +1,14 @@
+{
+  "v": 1,
+  "source": "team-notify",
+  "event": {
+    "type": "gauntlet",
+    "ticket": "T-5678",
+    "verb": "EVENT",
+    "from": "qc",
+    "to": "lead",
+    "ts": "2026-10-25T12:05:00Z",
+    "ref": "reviews/T-5678.md#a1b2c3d4e5f6",
+    "id": "89dd4c037538b2c933c7"
+  }
+}
