@@ -2,7 +2,7 @@
   "v": 1,
   "source": "team-notify",
   "event": {
-    "type": "plt19",
+    "type": "ticket-migration",
     "ticket": "T-9001",
     "verb": "EVENT",
     "from": "ops",

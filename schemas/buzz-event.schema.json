@@ -56,7 +56,7 @@
     "eventId": {
       "type": "string",
       "pattern": "^(?![\\s\\S]*[\\r\\n])[0-9a-f]{20}$",
-      "description": "SHA-256(type|source-key) hex[:20]. The pipe is a literal ASCII 0x7C. Alias types hash the short producer type (gauntlet, plt19)."
+      "description": "SHA-256(type|source-key) hex[:20]. The pipe is a literal ASCII 0x7C. Alias types hash the short producer type (gauntlet, ticket-migration)."
     },
     "ref": {
       "type": "string",
@@ -107,8 +107,8 @@
             "icom",
             "gauntlet",
             "gauntlet-verdict",
-            "plt19",
-            "plt19-migration",
+            "ticket-migration",
+            "migration",
             "icom-alert"
           ]
         },
@@ -159,7 +159,7 @@
         },
         {
           "if": {
-            "properties": { "type": { "enum": ["plt19", "plt19-migration"] } },
+            "properties": { "type": { "enum": ["ticket-migration", "migration"] } },
             "required": ["type"]
           },
           "then": {

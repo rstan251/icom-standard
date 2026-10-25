@@ -93,8 +93,8 @@ HASH_TYPE = {
     "icom": "icom",
     "gauntlet": "gauntlet",
     "gauntlet-verdict": "gauntlet",
-    "plt19": "plt19",
-    "plt19-migration": "plt19",
+    "ticket-migration": "ticket-migration",
+    "migration": "ticket-migration",
     "icom-alert": "icom-alert",
 }
 
@@ -210,7 +210,7 @@ def check_buzz_coverage() -> str | None:
     need_any = [
         {"icom"},
         {"gauntlet", "gauntlet-verdict"},
-        {"plt19", "plt19-migration"},
+        {"ticket-migration", "migration"},
         {"icom-alert"},
     ]
     for group in need_any:
@@ -346,6 +346,18 @@ def check_vectors() -> list[str]:
         ):
             hits.append("vectors: %s hop= on signed line" % vec["id"])
     return hits
+
+
+def check_hnc_order() -> str | None:
+    path = EXAMPLES / "icom-bc-single-hub-hnc.json"
+    line = load_json(path)["line"]
+    if " hnc=" not in line:
+        return "hub-hnc example missing hnc="
+    if " hsig=" not in line:
+        return "hub-hnc example missing hsig="
+    if line.find(" hnc=") > line.find(" hsig="):
+        return "hnc= must precede hsig="
+    return None
 
 
 def check_nak_shape() -> str | None:
@@ -499,6 +511,7 @@ def main() -> int:
         check_timestamps,
         check_fragment_pair,
         check_nak_shape,
+        check_hnc_order,
         check_producer_alerts,
         check_hygiene_negatives,
     ):

@@ -13,7 +13,7 @@ No production codebook ships here. `fixtures/codebook-fixture.json` is a made-up
 ## Run
 ```
 python3 icom_expand.py --codebook fixtures/codebook-fixture.json "@LEAD>DEV #0a1b2c3d GO ops.deploy"
-# -> @LEAD>ICOM>DEV P2 INT0 #iro-0a1b2c3d GO ops.deploy
+# -> @LEAD>ICOM>DEV P2 INT0 #tkt-0a1b2c3d GO ops.deploy
 python3 icom_expand.py --codebook fixtures/codebook-fixture.json "@LEAD>DEV #0a1b2c3d \$RERUN-GO cb=9.9.9-fixture"
 python3 tests/test_icom_expand.py      # plain asserts, prints TOTAL/PASS/FAIL
 python3 scrub_check.py                 # export hygiene, expect hits=0

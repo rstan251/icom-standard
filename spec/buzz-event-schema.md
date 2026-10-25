@@ -41,8 +41,8 @@ Text form, for chat endpoints that only accept a text field (cap 500):
 Example:
 `[team-notify] GAUNTLET FAIL T-5678 qc>lead ref=reviews/T-5678.md#a1b2c3d4e5f6`.
 
-`TYPE` is the producer type in uppercase (`ICOM`, `GAUNTLET`, `PLT19`,
-`ICOM-ALERT`). The JSON envelope is authoritative. The text line is a
+`TYPE` is the producer type in uppercase (`ICOM`, `GAUNTLET`,
+`TICKET-MIGRATION`, `ICOM-ALERT`). The JSON envelope is authoritative. The text line is a
 lossy display form: same fields, already redacted, no extra prose. A
 body that is only `{text}` and a body that is `{v,source,event}` are
 the two schema branches.
@@ -55,7 +55,7 @@ either `severity` is set or `status` is `P0`..`P3` (producer form).
 
 | Field | Type | Rule |
 |---|---|---|
-| `type` | string | Producer: `icom`, `gauntlet`, `plt19`, `icom-alert`. Public aliases `gauntlet-verdict` and `plt19-migration` are accepted and mean the same as `gauntlet` / `plt19`. |
+| `type` | string | Producer: `icom`, `gauntlet`, `ticket-migration`, `icom-alert`. Public aliases `gauntlet-verdict` and `migration` are accepted and mean the same as `gauntlet` / `ticket-migration`. |
 | `ticket` | string | Tracker id. Optional leading `#`. Letters, digits, `.` `_` `:` `/` `-`. Directory-style fallback tokens are valid. A lone `-` means missing. |
 | `verb` | string | Type-specific (below). A lone `-` means missing. |
 | `from` / `to` | string | Agent codes, **case-insensitive**; hyphen allowed (`cl01-bot`). `to` may be a comma list. A lone `-` means missing. |
@@ -88,7 +88,7 @@ A review verdict changed (new or content-changed).
 - `ref`: relative path plus a 12-hex content digest, `relpath#sha12`.
 - `status`: optional.
 
-### 2.3 `type=plt19` (alias `plt19-migration`)
+### 2.3 `type=ticket-migration` (alias `migration`)
 
 A ticket-migration milestone.
 
@@ -127,7 +127,7 @@ The separator is a **literal ASCII pipe** `0x7C`, one byte, no spaces.
 |---|---|
 | `icom` | `icom` |
 | `gauntlet` or `gauntlet-verdict` | `gauntlet` |
-| `plt19` or `plt19-migration` | `plt19` |
+| `ticket-migration` or `migration` | `ticket-migration` |
 | `icom-alert` | `icom-alert` |
 
 `source-key` is the producer’s stable key for that row (message id,
@@ -182,7 +182,7 @@ Rules:
    bump `v`. The schema file is the living contract for the current `v`.
 
 Changelog for this draft: `v=1` envelope (`icom`, `gauntlet` /
-`gauntlet-verdict`, `plt19` / `plt19-migration`, `icom-alert`) plus the
+`gauntlet-verdict`, `ticket-migration` / `migration`, `icom-alert`) plus the
 `[team-notify]` text branch.
 
 ## 5. Kill switch and delivery
@@ -258,9 +258,9 @@ The alias `gauntlet-verdict` hashes the same short type.
 }
 ```
 
-### 6.3 Ticket-migration milestone (producer type `plt19`)
+### 6.3 Ticket-migration milestone (producer type `ticket-migration`)
 
-`id` = `SHA-256("plt19|map:batch-01")[:20]`. Verb `EVENT` is the
+`id` = `SHA-256("ticket-migration|map:batch-01")[:20]`. Verb `EVENT` is the
 fallback when the milestone is unclassified.
 
 ```json
@@ -268,14 +268,14 @@ fallback when the milestone is unclassified.
   "v": 1,
   "source": "team-notify",
   "event": {
-    "type": "plt19",
+    "type": "ticket-migration",
     "ticket": "T-9001",
     "verb": "EVENT",
     "from": "CTO",
     "to": "LEAD",
     "ts": "2026-10-25T12:10:00.500-07:00",
     "ref": "map:batch-01",
-    "id": "cb420a33341dc667c63e",
+    "id": "93be4fc80c8b5be0b193",
     "status": "SENT",
     "detail": "n=12",
     "severity": "info"
@@ -343,14 +343,14 @@ producer has no value.
   "v": 1,
   "source": "team-notify",
   "event": {
-    "type": "plt19",
+    "type": "ticket-migration",
     "ticket": "-",
     "verb": "-",
     "from": "-",
     "to": "-",
     "ts": "2026-10-25T12:20:00.000-07:00",
     "ref": "map:batch-01",
-    "id": "cb420a33341dc667c63e",
+    "id": "93be4fc80c8b5be0b193",
     "status": "SENT"
   }
 }

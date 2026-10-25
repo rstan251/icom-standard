@@ -108,6 +108,7 @@ signature. No per-signature randomness.
 | Signature | Raw 64 bytes, base64url without padding (86 chars). |
 | `sts` | Agent signed time, unix seconds, decimal, 10 digits. Agent lines only. |
 | `nc` | Agent nonce: 12 fresh random bytes, base64url without padding (16 chars). Agent lines only. |
+| `hnc` | Hub nonce: same encoding as `nc` (16 chars). Hub lines only. Current producers emit it immediately before `hsig=`. |
 | `ts` | Hub / relay timestamp (RFC 3339 or the relay’s usual stamp). Hub lines only. |
 
 **Two grammars.** `sts=` / `nc=` are **not** required on every signed
@@ -116,12 +117,14 @@ line.
 | Kind | Trailing tokens (last is the signature) |
 |---|---|
 | Agent line | `sts=<unix10> nc=<nonce16> sig=ed25519:<kid>:<b64url-86>` |
-| Hub line (relayed or NAK) | `ts=<hub-stamp> hsig=ed25519:<hub-kid>:<b64url-86>` |
+| Hub line (relayed or NAK) | `ts=<hub-stamp> [hnc=<nonce16>] hsig=ed25519:<hub-kid>:<b64url-86>` |
 
 Token names are `sts` / `nc` / `sig` on purpose: `ts` is reserved for
 the hub stamp, and `n` already means count. A hub line MUST NOT be
 required to carry `sts=` or `nc=`. Delivered hub copies drop the
-agent’s `sig` / `sts` / `nc` and carry `ts=` + `hsig=` instead.
+agent’s `sig` / `sts` / `nc` and carry `ts=` + optional `hnc=` +
+`hsig=` instead. When `hnc=` is present it MUST sit immediately
+before `hsig=`.
 
 A line has at most one `sig=` and at most one `hsig=`. `sig=` / `hsig=`
 MUST be the last token. Signing never inserts CR/LF.
@@ -135,9 +138,10 @@ exactly as received:
 2. Strip leading and trailing ASCII space and tab. Split on runs of
    ASCII space/tab.
 3. Agent line: exactly one `sig=`, one `sts=`, one `nc=`. Hub line:
-   exactly one `hsig=`, one `ts=`. Duplicates → `sig-bad` `det=dup`.
+   exactly one `hsig=`, one `ts=`. `hnc=` MAY appear (exactly once if
+   present) and MUST precede `hsig=`. Duplicates → `sig-bad` `det=dup`.
 4. Drop every token whose key is `sig` or `hsig`. Keep the rest in
-   order (`sts`/`nc` on agent lines, `ts` on hub lines).
+   order (`sts`/`nc` on agent lines, `ts`/`hnc` on hub lines).
 5. Join with a single `0x20`. Then
    `M = domain || 0x00 || UTF-8(joined)`.
 
@@ -247,7 +251,7 @@ ticket      = "#" 1*(ALPHA / DIGIT / "-" / "_" / ".")
 verb        = %s"GO" / %s"HOLD" / %s"DONE" / %s"BLOCKED"
               / %s"REC" / %s"FYI" / %s"ASK" / %s"ACK" / %s"NAK"
 icx-code    = 1*lcalpha *("." 1*lcalpha / "~" 1*lcalpha)
-kv          = key "=" kv-val    ; key is not sts / nc / sig / hsig / ts
+kv          = key "=" kv-val    ; key is not sts / nc / hnc / sig / hsig / ts
 key         = 1*(lcalpha / DIGIT / "-" / "_")
 kv-val      = 1*unquoted / DQUOTE *(%x20-21 / %x23-7E) DQUOTE
 unquoted    = %x21-7E           ; printable, including "|"; no SP
@@ -256,6 +260,7 @@ sig-tail    = agent-sig / hub-sig
 agent-sig   = %s"sts=" 10DIGIT SP %s"nc=" nonce16 SP
               %s"sig=" %s"ed25519:" kid ":" sigb64
 hub-sig     = %s"ts=" ts-val SP
+              [ %s"hnc=" nonce16 SP ]
               %s"hsig=" %s"ed25519:" kid ":" sigb64
 nonce16     = 16(ALPHA / DIGIT / "-" / "_")
 ts-val      = 1*(ALPHA / DIGIT / "-" / ":" / "." / "+" / "T")
@@ -437,12 +442,18 @@ Canonical join (signature dropped):
 
 ### 7.3 Hub-delivered line and a NAK
 
-Same payload after hub ingest (`ts=` + `hsig=`, no `sts`/`nc`/`sig`).
-Role `HUB`, `kid=4028bdb5c5bc`. Recipient window is **600 s** against
-the receiver clock:
+Same payload after hub ingest (`ts=` + optional `hnc=` + `hsig=`, no
+`sts`/`nc`/`sig`). Role `HUB`, `kid=4028bdb5c5bc`. Recipient window is
+**600 s** against the receiver clock:
 
 ```
 @LEAD>ICOM>CTO P1 INT0 #T-1234 GO ops.deploy nx=CTO:review ts=2026-10-25T12:00:00-07:00 hsig=ed25519:4028bdb5c5bc:UYHuu4uuK7HMOLJ86hi7oDFt6pJbIHrx1yU-fbYskJwblN1xgq9YiUixZIR3mFk2oULRJXsU9Nww29qqCGE0CQ
+```
+
+Current producers emit `hnc=` immediately before `hsig=`:
+
+```
+@LEAD>ICOM>CTO P1 INT0 #T-1234 GO ops.deploy nx=CTO:review ts=2026-10-25T12:00:00-07:00 hnc=AAAAAAAAAAAAAAAA hsig=ed25519:4028bdb5c5bc:ZFb_4R_7Rgl4xT5JhbeTiLuihyRVEv3fXmZL2lKA7GJP7pr_LiY-F9aYKNiuh72bsrJML69E5U1ailTrfMwqDA
 ```
 
 If an inbound agent line is `sig-stale`, the hub NAK is:
@@ -471,7 +482,7 @@ Chunk 2 starts with SP so reassembly restores the `key=val` separator.
 
 A producer is conformant if it emits only `ICOM-BC/1` frames, keeps
 each ICOM line to one UTF-8 line of at most 1024 octets, uses agent
-`sts/nc/sig` or hub `ts/hsig` as specified, places the signature last,
+`sts/nc/sig` or hub `ts/[hnc/]hsig` as specified, places the signature last,
 and fragments only when the single frame would exceed the budget.
 
 A consumer is conformant if it implements section 6 in order (including

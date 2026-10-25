@@ -2,14 +2,14 @@
   "v": 1,
   "source": "team-notify",
   "event": {
-    "type": "plt19",
+    "type": "migration",
     "ticket": "T-9001",
     "verb": "EVENT",
-    "from": "cto",
-    "to": "lead",
+    "from": "CTO",
+    "to": "LEAD",
     "ts": "2026-10-25T12:10:00.500-07:00",
     "ref": "map:batch-01",
-    "id": "cb420a33341dc667c63e",
+    "id": "93be4fc80c8b5be0b193",
     "status": "SENT",
     "detail": "n=12",
     "severity": "info"

@@ -8,7 +8,7 @@ import icom_expand as E
 FX = os.path.join(ROOT, "fixtures", "codebook-fixture.json")
 WORK = os.path.join(ROOT, ".work"); os.makedirs(WORK, mode=0o700, exist_ok=True)
 CB = E.Codebook(FX)
-T = "#iro-0a1b2c3d"
+T = "#tkt-0a1b2c3d"
 results = []
 
 def case(name):

@@ -2,14 +2,14 @@
   "v": 1,
   "source": "team-notify",
   "event": {
-    "type": "plt19",
+    "type": "ticket-migration",
     "ticket": "-",
     "verb": "-",
     "from": "-",
     "to": "-",
     "ts": "2026-10-25T12:20:00.000-07:00",
     "ref": "map:batch-01",
-    "id": "cb420a33341dc667c63e",
+    "id": "93be4fc80c8b5be0b193",
     "status": "SENT"
   }
 }
