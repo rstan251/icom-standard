@@ -1,0 +1,60 @@
+{
+  "test": true,
+  "version": "icom-sig-v1",
+  "note": "TEST-ONLY. Seed = SHA-256(\"ICOM-BC-TEST-ONLY-<ROLE>\") as the 32-byte Ed25519 seed. Do not use as a real key.",
+  "seed_template": "ICOM-BC-TEST-ONLY-<ROLE>",
+  "frozen": {
+    "sts": 1792954800,
+    "nc": "AAAAAAAAAAAAAAAA",
+    "hub_ts": "2026-10-25T12:00:00-07:00"
+  },
+  "roles": {
+    "LEAD": {
+      "kid": "1582fdbfe0e6",
+      "pub": "NAOXyPgQusPh8JTNv9QnYk5MoQa4EY8DkYG59in12CQ"
+    },
+    "HUB": {
+      "kid": "4028bdb5c5bc",
+      "pub": "lLgyUsnVPlUMw4Q-bNPY5C0xjQinugxd6IJ66FBbzzA"
+    },
+    "QC": {
+      "kid": "12d4819fcc5f",
+      "pub": "JZK3BuveikX3ijt4t-BZz56e2vTbL4O6gCScAQrYWDc"
+    }
+  },
+  "vectors": [
+    {
+      "id": "V-AGENT-GO",
+      "role": "LEAD",
+      "domain": "icom-sig-v1",
+      "joined": "@LEAD>ICOM>CTO P1 INT0 #T-1234 GO ops.deploy nx=CTO:review sts=1792954800 nc=AAAAAAAAAAAAAAAA",
+      "line": "@LEAD>ICOM>CTO P1 INT0 #T-1234 GO ops.deploy nx=CTO:review sts=1792954800 nc=AAAAAAAAAAAAAAAA sig=ed25519:1582fdbfe0e6:DlyyM1zcH71bXqhXblmRZ5k_xDqFe1mfm5N99jWFC6WMPYg4w_wJHjjri0B5R_aaoZUxxwe-BzULd7yTMEjYCA",
+      "sig": "DlyyM1zcH71bXqhXblmRZ5k_xDqFe1mfm5N99jWFC6WMPYg4w_wJHjjri0B5R_aaoZUxxwe-BzULd7yTMEjYCA"
+    },
+    {
+      "id": "V-HUB-GO",
+      "role": "HUB",
+      "domain": "icom-hsig-v1",
+      "joined": "@LEAD>ICOM>CTO P1 INT0 #T-1234 GO ops.deploy nx=CTO:review ts=2026-10-25T12:00:00-07:00",
+      "line": "@LEAD>ICOM>CTO P1 INT0 #T-1234 GO ops.deploy nx=CTO:review ts=2026-10-25T12:00:00-07:00 hsig=ed25519:4028bdb5c5bc:UYHuu4uuK7HMOLJ86hi7oDFt6pJbIHrx1yU-fbYskJwblN1xgq9YiUixZIR3mFk2oULRJXsU9Nww29qqCGE0CQ",
+      "sig": "UYHuu4uuK7HMOLJ86hi7oDFt6pJbIHrx1yU-fbYskJwblN1xgq9YiUixZIR3mFk2oULRJXsU9Nww29qqCGE0CQ"
+    },
+    {
+      "id": "V-HUB-NAK",
+      "role": "HUB",
+      "domain": "icom-hsig-v1",
+      "joined": "@ICOM>ICOM>QC P2 INT0 #T-5678 NAK org.proto why=sig-stale det=skew cb=1.1.1 ts=2026-10-25T12:00:00-07:00",
+      "line": "@ICOM>ICOM>QC P2 INT0 #T-5678 NAK org.proto why=sig-stale det=skew cb=1.1.1 ts=2026-10-25T12:00:00-07:00 hsig=ed25519:4028bdb5c5bc:eWyTf0SiCQLJhGc_JaM-6sXIXTONwInbHjZiy1ANNk88Hvvl3TJyDY19FQIWgLkvevtodlpslab8ghqO5Af6Dw",
+      "sig": "eWyTf0SiCQLJhGc_JaM-6sXIXTONwInbHjZiy1ANNk88Hvvl3TJyDY19FQIWgLkvevtodlpslab8ghqO5Af6Dw"
+    },
+    {
+      "id": "V-QC-ASK",
+      "role": "QC",
+      "domain": "icom-sig-v1",
+      "joined": "@QC>ICOM>LEAD P1 CL01 #T-5678 ASK qa.review ask=APPROVE|HOLD why=tests,lint n=3 sts=1792954800 nc=AAAAAAAAAAAAAAAA",
+      "line": "@QC>ICOM>LEAD P1 CL01 #T-5678 ASK qa.review ask=APPROVE|HOLD why=tests,lint n=3 sts=1792954800 nc=AAAAAAAAAAAAAAAA sig=ed25519:12d4819fcc5f:zzNnefQsozgYFeEd8ee0F1cCq6N1T4t8Y1MdRCBf438l6Py8MExKyE_nviQVc9AK3bu30XeErn_EfugX6eKnCw",
+      "sig": "zzNnefQsozgYFeEd8ee0F1cCq6N1T4t8Y1MdRCBf438l6Py8MExKyE_nviQVc9AK3bu30XeErn_EfugX6eKnCw",
+      "msgid": "758c7a56"
+    }
+  ]
+}

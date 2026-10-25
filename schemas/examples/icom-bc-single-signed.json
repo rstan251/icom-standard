@@ -1,6 +1,6 @@
 {
   "v": 1,
   "kind": "single",
-  "line": "@LEAD>ICOM>CTO P1 INT0 #T-1234 GO ops.deploy nx=CTO:review sts=1792954800 nc=AAAAAAAAAAAAAAAA sig=ed25519:0123456789ab:<b64url-86>",
-  "wire": "IC1 S @LEAD>ICOM>CTO P1 INT0 #T-1234 GO ops.deploy nx=CTO:review sts=1792954800 nc=AAAAAAAAAAAAAAAA sig=ed25519:0123456789ab:<b64url-86>"
+  "line": "@LEAD>ICOM>CTO P1 INT0 #T-1234 GO ops.deploy nx=CTO:review sts=1792954800 nc=AAAAAAAAAAAAAAAA sig=ed25519:1582fdbfe0e6:DlyyM1zcH71bXqhXblmRZ5k_xDqFe1mfm5N99jWFC6WMPYg4w_wJHjjri0B5R_aaoZUxxwe-BzULd7yTMEjYCA",
+  "wire": "IC1 S @LEAD>ICOM>CTO P1 INT0 #T-1234 GO ops.deploy nx=CTO:review sts=1792954800 nc=AAAAAAAAAAAAAAAA sig=ed25519:1582fdbfe0e6:DlyyM1zcH71bXqhXblmRZ5k_xDqFe1mfm5N99jWFC6WMPYg4w_wJHjjri0B5R_aaoZUxxwe-BzULd7yTMEjYCA"
 }

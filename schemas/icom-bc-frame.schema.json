@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/rstan251/icom-standard/schemas/icom-bc-frame.schema.json",
   "title": "ICOM-BC/1 logical frame",
-  "description": "Structured form of one BitChat payload frame. Wire text is IC1 S <line> or IC1 F <msgid> <i>/<n> <chunk>.",
+  "description": "Structured form of one BitChat payload frame. Wire text is IC1 S <line> or IC1 F <msgid> <i>/<n> <chunk>. MAX_LINE is 1024.",
   "oneOf": [
     { "$ref": "#/$defs/single" },
     { "$ref": "#/$defs/fragment" }
@@ -18,11 +18,12 @@
         "line": {
           "type": "string",
           "minLength": 8,
-          "maxLength": 4096,
+          "maxLength": 1024,
           "pattern": "^@[A-Z][A-Z0-9]{1,7}>ICOM>[A-Z][A-Z0-9]{1,7}(,[A-Z][A-Z0-9]{1,7})* P[0-3] "
         },
         "wire": {
           "type": "string",
+          "maxLength": 1030,
           "description": "Optional exact BitChat body. Must equal 'IC1 S ' + line."
         }
       }
@@ -37,9 +38,10 @@
         "msgid": { "type": "string", "pattern": "^[0-9a-f]{8}$" },
         "index": { "type": "integer", "minimum": 1, "maximum": 16 },
         "total": { "type": "integer", "minimum": 1, "maximum": 16 },
-        "chunk": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "chunk": { "type": "string", "minLength": 1, "maxLength": 1024 },
         "wire": {
           "type": "string",
+          "maxLength": 1100,
           "description": "Optional exact BitChat body."
         }
       }

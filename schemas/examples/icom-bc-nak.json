@@ -1,0 +1,6 @@
+{
+  "v": 1,
+  "kind": "single",
+  "line": "@ICOM>ICOM>QC P2 INT0 #T-5678 NAK org.proto why=sig-stale det=skew cb=1.1.1 ts=2026-10-25T12:00:00-07:00 hsig=ed25519:4028bdb5c5bc:eWyTf0SiCQLJhGc_JaM-6sXIXTONwInbHjZiy1ANNk88Hvvl3TJyDY19FQIWgLkvevtodlpslab8ghqO5Af6Dw",
+  "wire": "IC1 S @ICOM>ICOM>QC P2 INT0 #T-5678 NAK org.proto why=sig-stale det=skew cb=1.1.1 ts=2026-10-25T12:00:00-07:00 hsig=ed25519:4028bdb5c5bc:eWyTf0SiCQLJhGc_JaM-6sXIXTONwInbHjZiy1ANNk88Hvvl3TJyDY19FQIWgLkvevtodlpslab8ghqO5Af6Dw"
+}

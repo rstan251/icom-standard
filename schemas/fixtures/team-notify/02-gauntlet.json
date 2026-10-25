@@ -1,0 +1,16 @@
+{
+  "v": 1,
+  "source": "team-notify",
+  "event": {
+    "type": "gauntlet",
+    "ticket": "dir-T-5678",
+    "verb": "FAIL",
+    "from": "qc",
+    "to": "lead,cto",
+    "ts": "2026-10-25T12:05:00.250-07:00",
+    "ref": "reviews/T-5678.md#a1b2c3d4e5f6",
+    "id": "89dd4c037538b2c933c7",
+    "detail": "card=card***1111 acct=1234567890123456",
+    "severity": "error"
+  }
+}

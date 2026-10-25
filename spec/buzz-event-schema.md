@@ -4,17 +4,20 @@ Status: Draft, 2026-10-25.
 By Robert Stanley / Iron Noodle Technologies. MIT License.
 
 A team webhook posts this envelope to a chat channel so people can see
-ICOM traffic, review verdicts, and ticket-migration milestones in
-real time. The JSON object is the contract. How a host is deployed is
-out of scope.
+ICOM traffic, review verdicts, ticket-migration milestones, and hub
+alerts in real time. The JSON object is the contract. How a host is
+deployed is out of scope.
 
-Ticket: PLT-22. Schema: `schemas/buzz-event.schema.json` (JSON Schema
-draft 2020-12). Examples: `schemas/examples/buzz-event-*.json`.
-Placeholder tickets and agent codes only.
+Schema: `schemas/buzz-event.schema.json` (JSON Schema draft 2020-12).
+Examples: `schemas/examples/buzz-event-*.json`. Producer-shaped
+fixtures: `schemas/fixtures/team-notify/`. Placeholder tickets and
+agent codes only.
 
 ## 1. Envelope
 
-`POST` a JSON body. Canonical shape:
+`POST` a JSON body. Two shapes are valid.
+
+Canonical envelope:
 
 ```
 { "v": 1, "source": "team-notify", "event": { ... } }
@@ -29,76 +32,107 @@ Placeholder tickets and agent codes only.
 Optional HTTP header: `Idempotency-Key: <event.id>` (20 lowercase hex).
 Receivers that key on it MUST treat a repeat as the same event.
 
-An alternate body for chat endpoints that only accept a text field:
+Text form, for chat endpoints that only accept a text field (cap 500):
 
 ```
-{ "text": "[icom] <TYPE> <VERB> <ticket> <FROM>><TO> [status] ref=<ref>" }
+{ "text": "[team-notify] TYPE VERB ticket from>to [status] ref=<ref>" }
 ```
 
-Example: `[icom] ICOM GO #T-1234 LEAD>CTO SENT ref=m01ab23cd45ef`.
-The JSON envelope is authoritative. The text line is a lossy display
-form: same fields, already redacted, no extra prose.
+Example:
+`[team-notify] GAUNTLET FAIL T-5678 qc>lead ref=reviews/T-5678.md#a1b2c3d4e5f6`.
+
+`TYPE` is the producer type in uppercase (`ICOM`, `GAUNTLET`, `PLT19`,
+`ICOM-ALERT`). The JSON envelope is authoritative. The text line is a
+lossy display form: same fields, already redacted, no extra prose. A
+body that is only `{text}` and a body that is `{v,source,event}` are
+the two schema branches.
 
 ## 2. Event object
 
 Required on every event: `type`, `ticket`, `verb`, `from`, `to`, `ts`,
-`ref`, `id`. Optional: `status`, `detail`.
+`ref`, `id`. Optional: `status`, `detail`, `severity`. `severity` is
+required on `icom-alert`.
 
 | Field | Type | Rule |
 |---|---|---|
-| `type` | string | `icom` / `gauntlet-verdict` / `plt19-migration`. |
-| `ticket` | string | `#T-…`, `#iro-` + 8 hex, or `PLT-` + digits. `#` optional. |
+| `type` | string | Producer: `icom`, `gauntlet`, `plt19`, `icom-alert`. Public aliases `gauntlet-verdict` and `plt19-migration` are accepted and mean the same as `gauntlet` / `plt19`. |
+| `ticket` | string | Tracker id. Optional leading `#`. Letters, digits, `.` `_` `:` `/` `-`. Directory-style fallback tokens (a hyphen or a single `/`) are valid. |
 | `verb` | string | Type-specific (below). |
-| `from` / `to` | string | Codebook agent codes. `to` may be a comma list. |
-| `ts` | string | Event time, RFC 3339 / UTC (`…Z`). |
-| `ref` | string | Stable pointer back to the source record (message id, verdict digest, batch id). No filesystem paths. |
-| `id` | string | Dedupe key: first 20 lowercase hex digits of `SHA-256(type \|\| source-key)`. |
-| `status` | string | Delivery or outcome. Required in practice for `icom`. |
+| `from` / `to` | string | Agent codes, **case-insensitive**; hyphen allowed (`cl01-bot`). `to` may be a comma list. |
+| `ts` | string | RFC 3339. UTC `Z` **or** a numeric offset. Fractional seconds allowed. |
+| `ref` | string | Pointer back to the source record. Relative `path#digest` is allowed. No host prefix. |
+| `id` | string | Dedupe key, 20 lowercase hex. See §2.5. |
+| `status` | string | Delivery or outcome. Required for `icom`. |
 | `detail` | string | Short, already-redacted note (≤ 240 chars). |
-
-`id` is computed by the producer from a source-specific key (for
-example the ICOM message id, or a verdict path token plus a content
-digest). Receivers MUST NOT recompute it; they only store and compare.
-
-### 2.1 `type=icom`
-
-One relayed or rejected ICOM line.
-
-- `verb`: ICOM verb (`GO` `HOLD` `DONE` `BLOCKED` `REC` `FYI` `ASK`
-  `ACK` `NAK`).
-- `status`: `SENT` / `SPOOL` / `FAIL` / `REJECT` / `NAK-<code>`
-  (hyphenated NAK code from the ICOM or ICOM-BC spec).
-- `ref`: message id (short token, not a path).
-- `detail`: optional redacted excerpt (`object` and a few `key=val`s).
-  Never a signature, nonce, or secret.
-
-### 2.2 `type=gauntlet-verdict`
-
-A review verdict changed (new or content-changed).
-
-- `verb`: `PASS` / `FAIL` / `BLOCKED` / `PASS-COND` / `UNKNOWN`.
-- `ticket`: first `#T-…`, `#iro-…`, or `PLT-…` cited by the verdict.
-- `ref`: `verdict:<ticket-token>:<sha12>` where `sha12` is the first 12
-  hex digits of the verdict content hash. No host or directory prefix.
-- `status`: optional.
-
-### 2.3 `type=plt19-migration`
-
-A ticket-migration milestone (dry-run, import, spot-check, state,
-done, fail).
-
-- `verb`: `DRYRUN` / `IMPORT` / `SPOTCHECK` / `STATE` / `DONE` / `FAIL`.
-- `ticket`: the migration stream (`PLT-19`) or a migrated id (`PLT-101`).
-- `ref`: batch or run token (`map:batch-01`).
-- `detail`: optional counts or notes (`n=12`), already redacted.
+| `severity` | string | `info` / `warn` / `error` / `crit`. |
 
 Unknown future `type` values: a display consumer MUST accept the HTTP
 request and skip the event. An actor that cannot interpret the type
 MUST NOT guess.
 
+### 2.1 `type=icom`
+
+One relayed or rejected ICOM line.
+
+- `verb`: `GO` `HOLD` `DONE` `BLOCKED` `REC` `FYI` `ASK` `ACK` `NAK`.
+- `status`: `SENT` / `SPOOL` / `FAIL` / `REJECT` / `NAK-<code>`.
+- `ref`: message id (short token).
+- `detail`: optional redacted excerpt. Never a signature, nonce, or secret.
+
+### 2.2 `type=gauntlet` (alias `gauntlet-verdict`)
+
+A review verdict changed (new or content-changed).
+
+- `verb`: `PASS` / `FAIL` / `BLOCKED` / `PASS-COND` / `UNKNOWN`.
+- `ticket`: first tracker id cited by the verdict.
+- `ref`: relative path plus a 12-hex content digest, `relpath#sha12`.
+- `status`: optional.
+
+### 2.3 `type=plt19` (alias `plt19-migration`)
+
+A ticket-migration milestone.
+
+- `verb`: any uppercase token (`DRYRUN` `IMPORT` `SPOTCHECK` `STATE`
+  `DONE` `FAIL` …). If the producer cannot classify the milestone it
+  sends `EVENT`. The verb enum is **not** closed.
+- `ticket`: the migration stream or a migrated id.
+- `ref`: batch or run token (`map:batch-01`).
+- `detail`: optional counts or notes (`n=12`), already redacted.
+
+### 2.4 `type=icom-alert`
+
+Hub / signature operational alerts. `severity` is required.
+
+| `verb` | When |
+|---|---|
+| `hub-key-fail-closed` | Hub signing key is unusable; hub refuses to emit. |
+| `hub-key-restored` | Hub signing key is usable again. |
+| `sig-failure` | A verify failure was recorded (count or sample in `detail`). |
+| `hub-sign-skip` | Hub emitted a line without `hsig=` (mode off, or skip). |
+
+### 2.5 `id` (literal pipe)
+
+```
+id = lowercase_hex( SHA-256( type || "|" || source-key ) )[0:20]
+```
+
+The separator is a **literal ASCII pipe** `0x7C`, one byte, no spaces.
+`type` in the hash is the **producer** type, not the public alias:
+
+| Event `type` on the wire | `type` inside the hash |
+|---|---|
+| `icom` | `icom` |
+| `gauntlet` or `gauntlet-verdict` | `gauntlet` |
+| `plt19` or `plt19-migration` | `plt19` |
+| `icom-alert` | `icom-alert` |
+
+`source-key` is the producer’s stable key for that row (message id,
+`relpath#sha12`, batch id, alert name). Receivers MUST NOT recompute
+`id`; they only store and compare.
+
 ## 3. Redaction (last-4)
 
-Producers run the same scrub on `detail`, on any text form, and on
+Producers run the same scrub on `detail`, on the text form, and on
 their own logs. After scrub, the event is what goes on the wire.
 Receivers MUST NOT try to recover masked values.
 
@@ -106,7 +140,8 @@ Receivers MUST NOT try to recover masked values.
 |---|---|---|
 | Email | Keep the first character of the local-part; mask the rest; keep the domain. | `j***@example.com` |
 | Phone | Last 4 digits only. | `***-0142` |
-| Card | Last 4 only, and only after a Luhn pass. Otherwise drop. | `************1111` |
+| Card (Luhn pass) | Prefix `card***` plus last 4. | `card***1111` |
+| Card-like, Luhn fail | **Keep** the digits. Not a card. | `acct=1234567890123456` |
 | Secret / token | Omit. Known prefixes, `Bearer`/`Basic`, `key=val` secrets, PEM blocks, and opaque strings of 32+ chars never appear. | *(empty)* |
 | UUID | Keep (not a secret). | |
 | URL | Scheme and host only; drop path, query, and fragment. | `https://example.com` |
@@ -116,8 +151,7 @@ status codes, and the destination host name. They MUST NOT hold the
 full URL, a bearer token, or unredacted event text.
 
 Card-like digit runs inside `sig`, `hsig`, and `nc` values are not
-emitted on this envelope in the first place (those tokens stay off the
-event).
+emitted on this envelope (those tokens stay off the event).
 
 ## 4. Versioning
 
@@ -143,8 +177,9 @@ Rules:
 5. Additive schema edits that only add optional properties do **not**
    bump `v`. The schema file is the living contract for the current `v`.
 
-Changelog for this draft: `v=1` initial public envelope (`icom`,
-`gauntlet-verdict`, `plt19-migration`).
+Changelog for this draft: `v=1` envelope (`icom`, `gauntlet` /
+`gauntlet-verdict`, `plt19` / `plt19-migration`, `icom-alert`) plus the
+`[team-notify]` text branch.
 
 ## 5. Kill switch and delivery
 
@@ -167,10 +202,13 @@ the producer was enabled and not killed at send time.
 
 ## 6. Examples
 
-One example per `type`. All three validate against
-`schemas/buzz-event.schema.json`.
+Examples validate against `schemas/buzz-event.schema.json`. Producer
+fixtures under `schemas/fixtures/team-notify/` use the short type
+names, offset timestamps, path refs, and the text branch.
 
 ### 6.1 ICOM line relayed
+
+`id` = `SHA-256("icom|m01ab23cd45ef")[:20]`.
 
 ```json
 {
@@ -182,55 +220,90 @@ One example per `type`. All three validate against
     "verb": "GO",
     "from": "LEAD",
     "to": "CTO",
-    "ts": "2026-10-25T19:00:00Z",
+    "ts": "2026-10-25T12:00:00.000-07:00",
     "ref": "m01ab23cd45ef",
-    "id": "4d3c2b1a0f9e8d7c6b5a",
+    "id": "160b13eeb7091bd7ea95",
     "status": "SENT",
-    "detail": "ops.deploy nx=CTO:review"
+    "detail": "ops.deploy nx=CTO:review",
+    "severity": "info"
   }
 }
 ```
 
-### 6.2 Review verdict
+### 6.2 Review verdict (producer type `gauntlet`)
+
+`id` = `SHA-256("gauntlet|reviews/T-5678.md#a1b2c3d4e5f6")[:20]`.
+The alias `gauntlet-verdict` hashes the same short type.
 
 ```json
 {
   "v": 1,
   "source": "team-notify",
   "event": {
-    "type": "gauntlet-verdict",
-    "ticket": "#T-5678",
+    "type": "gauntlet",
+    "ticket": "T-5678",
     "verb": "FAIL",
-    "from": "QC",
-    "to": "LEAD",
-    "ts": "2026-10-25T19:05:00Z",
-    "ref": "verdict:T-5678:a1b2c3d4e5f6",
-    "id": "b0a1928374655e6d7c8b",
-    "detail": "why=tests"
+    "from": "qc",
+    "to": "lead",
+    "ts": "2026-10-25T12:05:00.250-07:00",
+    "ref": "reviews/T-5678.md#a1b2c3d4e5f6",
+    "id": "89dd4c037538b2c933c7",
+    "detail": "why=tests contact=j***@example.com phone=***-0142 card=card***1111 acct=1234567890123456",
+    "severity": "error"
   }
 }
 ```
 
-### 6.3 Ticket-migration milestone
+### 6.3 Ticket-migration milestone (producer type `plt19`)
+
+`id` = `SHA-256("plt19|map:batch-01")[:20]`. Verb `EVENT` is the
+fallback when the milestone is unclassified.
 
 ```json
 {
   "v": 1,
   "source": "team-notify",
   "event": {
-    "type": "plt19-migration",
+    "type": "plt19",
     "ticket": "PLT-19",
-    "verb": "DRYRUN",
+    "verb": "EVENT",
     "from": "CTO",
     "to": "LEAD",
-    "ts": "2026-10-25T19:10:00Z",
+    "ts": "2026-10-25T12:10:00.500-07:00",
     "ref": "map:batch-01",
-    "id": "c1d2e3f4a5b60718293a",
+    "id": "cb420a33341dc667c63e",
     "status": "SENT",
-    "detail": "n=12"
+    "detail": "n=12",
+    "severity": "info"
   }
 }
 ```
 
-Redaction on a `detail` that once held an email and a phone, after
-scrub: `contact=j***@example.com phone=***-0142`.
+### 6.4 Hub alert
+
+```json
+{
+  "v": 1,
+  "source": "team-notify",
+  "event": {
+    "type": "icom-alert",
+    "ticket": "T-1234",
+    "verb": "hub-key-fail-closed",
+    "from": "ICOM",
+    "to": "LEAD",
+    "ts": "2026-10-25T12:15:00.000-07:00",
+    "ref": "alert:hub-key",
+    "id": "e59016f7e500eef1228e",
+    "severity": "crit",
+    "detail": "kid=0123456789ab"
+  }
+}
+```
+
+### 6.5 Text branch
+
+```json
+{
+  "text": "[team-notify] GAUNTLET FAIL T-5678 qc>lead ref=reviews/T-5678.md#a1b2c3d4e5f6"
+}
+```

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate ICOM public spec examples against their JSON Schemas.
+"""Validate ICOM public spec examples, producer fixtures, and sig vectors.
 
 Copyright (c) 2026 Robert Stanley / Iron Noodle Technologies. MIT License.
 
@@ -8,6 +8,8 @@ Exit 0 = all checks passed. Needs: pip install -r scripts/requirements.txt
 """
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import re
 import sys
@@ -23,27 +25,33 @@ except ImportError:
     )
     sys.exit(2)
 
+try:
+    from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+        Ed25519PrivateKey,
+        Ed25519PublicKey,
+    )
+    from cryptography.hazmat.primitives import serialization
+except ImportError:
+    sys.stderr.write(
+        "validate_schemas: install cryptography first "
+        "(pip install -r scripts/requirements.txt)\n"
+    )
+    sys.exit(2)
+
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMAS = ROOT / "schemas"
 EXAMPLES = SCHEMAS / "examples"
+FIXTURES = SCHEMAS / "fixtures"
+TEAM = FIXTURES / "team-notify"
+NEGATIVE = FIXTURES / "negative"
+VECTORS = SCHEMAS / "vectors" / "icom-sig-v1.json"
 
 BUZZ_SCHEMA = SCHEMAS / "buzz-event.schema.json"
 FRAME_SCHEMA = SCHEMAS / "icom-bc-frame.schema.json"
 
-BUZZ_EXAMPLES = [
-    EXAMPLES / "buzz-event-icom.json",
-    EXAMPLES / "buzz-event-gauntlet-verdict.json",
-    EXAMPLES / "buzz-event-plt19-migration.json",
-]
-FRAME_EXAMPLES = [
-    EXAMPLES / "icom-bc-single-fyi.json",
-    EXAMPLES / "icom-bc-single-signed.json",
-    EXAMPLES / "icom-bc-fragment-1.json",
-    EXAMPLES / "icom-bc-fragment-2.json",
-]
-
 TS_RE = re.compile(
-    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$"
+    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
 )
 IPV4_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 PEM_RE = re.compile(r"-----BEGIN [A-Z ]*(?:PRIVATE KEY|CERTIFICATE)-----")
@@ -52,6 +60,17 @@ KEY_RE = re.compile(
     r"|xox[abprs]-[A-Za-z0-9-]{8,}|AKIA[0-9A-Z]{12,})\b"
 )
 LONG_TOKEN_RE = re.compile(r"\b[A-Za-z0-9_\-+/]{40,}={0,2}")
+ED25519_TAIL_RE = re.compile(r"ed25519:[0-9a-f]{12}:[A-Za-z0-9_-]{86}")
+IRO_ID_RE = re.compile(r"#?iro-[0-9a-fA-F]{8}\b")
+
+HASH_TYPE = {
+    "icom": "icom",
+    "gauntlet": "gauntlet",
+    "gauntlet-verdict": "gauntlet",
+    "plt19": "plt19",
+    "plt19-migration": "plt19",
+    "icom-alert": "icom-alert",
+}
 
 
 def load_json(path: Path):
@@ -72,6 +91,15 @@ def check_schema(label: str, schema_path: Path, example_path: Path) -> str | Non
     except ValidationError as exc:
         return "%s: %s: %s" % (label, example_path.name, exc.message)
     return None
+
+
+def expect_schema_fail(schema_path: Path, example_path: Path) -> str | None:
+    inst = load_json(example_path)
+    try:
+        validator_for(schema_path).validate(inst)
+    except ValidationError:
+        return None
+    return "negative %s unexpectedly passed" % example_path.name
 
 
 def check_wire(example_path: Path) -> str | None:
@@ -100,25 +128,39 @@ def check_wire(example_path: Path) -> str | None:
     return "%s: unknown kind" % example_path.name
 
 
-def check_buzz_types() -> str | None:
-    seen = set()
-    for path in BUZZ_EXAMPLES:
-        seen.add(load_json(path)["event"]["type"])
-    need = {"icom", "gauntlet-verdict", "plt19-migration"}
-    missing = need - seen
-    if missing:
-        return "buzz examples missing types: %s" % ", ".join(sorted(missing))
-    extra = seen - need
-    if extra:
-        return "buzz examples have unexpected types: %s" % ", ".join(sorted(extra))
+def check_buzz_coverage() -> str | None:
+    types: set[str] = set()
+    saw_text = False
+    for path in sorted(EXAMPLES.glob("buzz-event-*.json")):
+        inst = load_json(path)
+        if "text" in inst:
+            saw_text = True
+        if "event" in inst:
+            types.add(inst["event"]["type"])
+    need_any = [
+        {"icom"},
+        {"gauntlet", "gauntlet-verdict"},
+        {"plt19", "plt19-migration"},
+        {"icom-alert"},
+    ]
+    for group in need_any:
+        if types.isdisjoint(group):
+            return "buzz examples missing type family %s" % sorted(group)
+    if not saw_text:
+        return "buzz examples missing text branch"
     return None
 
 
-def check_buzz_timestamps() -> str | None:
-    for path in BUZZ_EXAMPLES:
-        ts = load_json(path)["event"]["ts"]
+def check_timestamps() -> str | None:
+    paths = list(EXAMPLES.glob("buzz-event-*.json")) + list(TEAM.glob("*.json"))
+    for path in paths:
+        inst = load_json(path)
+        ev = inst.get("event")
+        if not ev:
+            continue
+        ts = ev.get("ts", "")
         if not TS_RE.match(ts):
-            return "%s: ts is not UTC date-time" % path.name
+            return "%s: ts is not RFC 3339 (Z or offset)" % path.name
     return None
 
 
@@ -134,14 +176,101 @@ def check_fragment_pair() -> str | None:
         return "reassembled fragment is not an ICOM line"
     if "\n" in line or "\r" in line:
         return "reassembled fragment contains a newline"
-    if "sig=" in line and not line.rstrip().endswith("<b64url-86>"):
-        return "example signature placeholder drifted"
+    expect = hashlib.sha256(line.encode()).hexdigest()[:8]
+    if a["msgid"] != expect:
+        return "fragment msgid != SHA-256(line)[:8]"
+    return None
+
+
+def check_id_hashes() -> list[str]:
+    hits: list[str] = []
+    manifest = load_json(FIXTURES / "id-checks.json")
+    for row in manifest:
+        path = SCHEMAS / row["file"]
+        inst = load_json(path)
+        ev = inst["event"]
+        expect = hashlib.sha256(
+            ("%s|%s" % (row["hash_type"], row["key"])).encode()
+        ).hexdigest()[:20]
+        if ev["id"] != expect:
+            hits.append(
+                "%s: id %s != sha256(%s|%s)[:20] = %s"
+                % (path.name, ev["id"], row["hash_type"], row["key"], expect)
+            )
+        hashed = HASH_TYPE.get(ev["type"])
+        if hashed and hashed != row["hash_type"]:
+            hits.append(
+                "%s: hash_type %s does not match event type %s"
+                % (path.name, row["hash_type"], ev["type"])
+            )
+    return hits
+
+
+def b64url_decode(s: str) -> bytes:
+    pad = "=" * ((4 - len(s) % 4) % 4)
+    return base64.urlsafe_b64decode(s + pad)
+
+
+def check_vectors() -> list[str]:
+    hits: list[str] = []
+    doc = load_json(VECTORS)
+    if doc.get("test") is not True:
+        hits.append("vectors: missing test=true")
+    roles = doc["roles"]
+    for role, meta in roles.items():
+        seed = hashlib.sha256(("ICOM-BC-TEST-ONLY-%s" % role).encode()).digest()
+        key = Ed25519PrivateKey.from_private_bytes(seed)
+        pub = key.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+        kid = hashlib.sha256(pub).hexdigest()[:12]
+        pub_b64 = base64.urlsafe_b64encode(pub).rstrip(b"=").decode("ascii")
+        if kid != meta["kid"]:
+            hits.append("vectors: role %s kid mismatch" % role)
+        if pub_b64 != meta["pub"]:
+            hits.append("vectors: role %s pub mismatch" % role)
+    for vec in doc["vectors"]:
+        role = vec["role"]
+        seed = hashlib.sha256(("ICOM-BC-TEST-ONLY-%s" % role).encode()).digest()
+        key = Ed25519PrivateKey.from_private_bytes(seed)
+        pub = key.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+        M = vec["domain"].encode() + b"\x00" + vec["joined"].encode()
+        try:
+            Ed25519PublicKey.from_public_bytes(pub).verify(
+                b64url_decode(vec["sig"]), M
+            )
+        except InvalidSignature:
+            hits.append("vectors: %s verify failed" % vec["id"])
+        if vec["sig"] not in vec["line"]:
+            hits.append("vectors: %s sig not on line" % vec["id"])
+        if "msgid" in vec:
+            mid = hashlib.sha256(vec["line"].encode()).hexdigest()[:8]
+            if mid != vec["msgid"]:
+                hits.append("vectors: %s msgid mismatch" % vec["id"])
+    return hits
+
+
+def check_nak_shape() -> str | None:
+    line = load_json(EXAMPLES / "icom-bc-nak.json")["line"]
+    if " cb=" not in " " + line and " cb=" not in line:
+        if "cb=" not in line:
+            return "NAK example missing cb="
+    if "hsig=" not in line:
+        return "NAK example missing hsig="
+    if "ts=" not in line:
+        return "NAK example missing ts="
+    if "sts=" in line or " nc=" in line or " sig=" in line:
+        return "NAK example still has agent sig tokens"
     return None
 
 
 def check_hygiene() -> list[str]:
     hits: list[str] = []
-    roots = [ROOT / "spec", EXAMPLES]
+    roots = [ROOT / "spec", EXAMPLES, TEAM]
     for root in roots:
         for path in sorted(root.rglob("*")):
             if not path.is_file():
@@ -155,7 +284,10 @@ def check_hygiene() -> list[str]:
                     hits.append("%s:%d pem" % (rel, i))
                 if KEY_RE.search(line):
                     hits.append("%s:%d key-prefix" % (rel, i))
-                if LONG_TOKEN_RE.search(line):
+                if IRO_ID_RE.search(line):
+                    hits.append("%s:%d iro-id" % (rel, i))
+                cleaned = ED25519_TAIL_RE.sub(" ", line)
+                if LONG_TOKEN_RE.search(cleaned):
                     hits.append("%s:%d long-token" % (rel, i))
     return hits
 
@@ -164,12 +296,17 @@ def main() -> int:
     errors: list[str] = []
     checks = 0
 
-    for path in BUZZ_EXAMPLES:
+    buzz_examples = sorted(EXAMPLES.glob("buzz-event-*.json"))
+    frame_examples = sorted(EXAMPLES.glob("icom-bc-*.json"))
+    team_fix = sorted(TEAM.glob("*.json"))
+    neg_fix = sorted(NEGATIVE.glob("*.json"))
+
+    for path in buzz_examples + team_fix:
         checks += 1
         err = check_schema("buzz", BUZZ_SCHEMA, path)
         if err:
             errors.append(err)
-    for path in FRAME_EXAMPLES:
+    for path in frame_examples:
         checks += 1
         err = check_schema("frame", FRAME_SCHEMA, path)
         if err:
@@ -178,12 +315,30 @@ def main() -> int:
         err = check_wire(path)
         if err:
             errors.append(err)
+    for path in neg_fix:
+        checks += 1
+        err = expect_schema_fail(BUZZ_SCHEMA, path)
+        if err:
+            errors.append(err)
 
-    for fn in (check_buzz_types, check_buzz_timestamps, check_fragment_pair):
+    for fn in (
+        check_buzz_coverage,
+        check_timestamps,
+        check_fragment_pair,
+        check_nak_shape,
+    ):
         checks += 1
         err = fn()
         if err:
             errors.append(err)
+
+    id_hits = check_id_hashes()
+    checks += max(1, len(load_json(FIXTURES / "id-checks.json")))
+    errors.extend(id_hits)
+
+    vec_hits = check_vectors()
+    checks += 1 + len(load_json(VECTORS)["vectors"])
+    errors.extend(vec_hits)
 
     checks += 1
     errors.extend(check_hygiene())

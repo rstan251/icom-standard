@@ -1,2 +1,3 @@
 jsonschema>=4.20
 rfc3339-validator>=0.1.4
+cryptography>=42.0.0

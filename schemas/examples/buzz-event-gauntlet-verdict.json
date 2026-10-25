@@ -3,13 +3,14 @@
   "source": "team-notify",
   "event": {
     "type": "gauntlet-verdict",
-    "ticket": "#T-5678",
+    "ticket": "T-5678",
     "verb": "FAIL",
-    "from": "QC",
-    "to": "LEAD",
-    "ts": "2026-10-25T19:05:00Z",
-    "ref": "verdict:T-5678:a1b2c3d4e5f6",
-    "id": "b0a1928374655e6d7c8b",
-    "detail": "why=tests"
+    "from": "qc",
+    "to": "lead",
+    "ts": "2026-10-25T12:05:00.250-07:00",
+    "ref": "reviews/T-5678.md#a1b2c3d4e5f6",
+    "id": "89dd4c037538b2c933c7",
+    "detail": "why=tests contact=j***@example.com phone=***-0142 card=card***1111 acct=1234567890123456",
+    "severity": "error"
   }
 }

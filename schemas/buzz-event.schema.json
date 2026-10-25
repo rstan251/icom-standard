@@ -2,48 +2,87 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/rstan251/icom-standard/schemas/buzz-event.schema.json",
   "title": "ICOM Buzz event envelope",
-  "description": "Team-channel webhook body for ICOM, review-verdict, and ticket-migration events. v=1.",
-  "type": "object",
-  "additionalProperties": false,
-  "required": ["v", "source", "event"],
-  "properties": {
-    "v": {
-      "type": "integer",
-      "minimum": 1,
-      "description": "Envelope version. Current producers send 1."
-    },
-    "source": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 64,
-      "pattern": "^[a-z][a-z0-9-]{0,62}$"
-    },
-    "event": { "$ref": "#/$defs/event" }
-  },
+  "description": "Team-channel webhook body. Either the JSON envelope or the text form. v=1.",
+  "oneOf": [
+    { "$ref": "#/$defs/envelope" },
+    { "$ref": "#/$defs/textBody" }
+  ],
   "$defs": {
+    "envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["v", "source", "event"],
+      "properties": {
+        "v": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Envelope version. Current producers send 1."
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "event": { "$ref": "#/$defs/event" }
+      }
+    },
+    "textBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text"],
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 14,
+          "maxLength": 500,
+          "pattern": "^\\[team-notify\\] ",
+          "description": "Lossy display line. Prefix [team-notify] and a trailing space; cap 500."
+        }
+      }
+    },
     "agent": {
       "type": "string",
-      "pattern": "^[A-Z][A-Z0-9]{1,7}(,[A-Z][A-Z0-9]{1,7})*$",
-      "description": "Codebook agent code, or a comma list for to=."
+      "pattern": "^[A-Za-z][A-Za-z0-9-]{0,15}(,[A-Za-z][A-Za-z0-9-]{0,15})*$",
+      "description": "Agent code, case-insensitive; hyphen allowed; comma list for to=."
     },
     "ticket": {
       "type": "string",
-      "pattern": "^#?(T-[A-Za-z0-9._-]+|iro-[0-9a-f]{8}|PLT-[0-9]+)$"
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^#?[A-Za-z0-9][A-Za-z0-9._:/-]{0,62}$",
+      "description": "Tracker id, optional leading #. Hyphens and a single-segment dir token are allowed."
     },
     "eventId": {
       "type": "string",
       "pattern": "^[0-9a-f]{20}$",
-      "description": "First 20 hex digits of SHA-256(type || source-key)."
+      "description": "SHA-256(type|source-key) hex[:20]. The pipe is a literal ASCII 0x7C. Alias types hash the short producer type (gauntlet, plt19)."
     },
     "ref": {
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
-      "pattern": "^[A-Za-z0-9._:#-]{1,128}$"
+      "pattern": "^[A-Za-z0-9._:#/=-]{1,128}$",
+      "description": "Source pointer. Relative path#digest is allowed; no host prefix."
     },
     "detail": {
       "type": "string",
       "maxLength": 240
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["info", "warn", "error", "crit"]
+    },
+    "upperVerb": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_-]{0,31}$",
+      "description": "Any uppercase verb. Producers that cannot classify send EVENT."
+    },
+    "anyVerb": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32,
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,31}$"
     },
     "event": {
       "type": "object",
@@ -52,17 +91,29 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["icom", "gauntlet-verdict", "plt19-migration"]
+          "enum": [
+            "icom",
+            "gauntlet",
+            "gauntlet-verdict",
+            "plt19",
+            "plt19-migration",
+            "icom-alert"
+          ]
         },
         "ticket": { "$ref": "#/$defs/ticket" },
-        "verb": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "verb": { "$ref": "#/$defs/anyVerb" },
         "from": { "$ref": "#/$defs/agent" },
         "to": { "$ref": "#/$defs/agent" },
-        "ts": { "type": "string", "format": "date-time" },
+        "ts": {
+          "type": "string",
+          "format": "date-time",
+          "description": "RFC 3339. UTC Z or a numeric offset; fractional seconds allowed."
+        },
         "ref": { "$ref": "#/$defs/ref" },
         "id": { "$ref": "#/$defs/eventId" },
         "status": { "type": "string", "minLength": 1, "maxLength": 64 },
-        "detail": { "$ref": "#/$defs/detail" }
+        "detail": { "$ref": "#/$defs/detail" },
+        "severity": { "$ref": "#/$defs/severity" }
       },
       "allOf": [
         {
@@ -81,7 +132,10 @@
           }
         },
         {
-          "if": { "properties": { "type": { "const": "gauntlet-verdict" } }, "required": ["type"] },
+          "if": {
+            "properties": { "type": { "enum": ["gauntlet", "gauntlet-verdict"] } },
+            "required": ["type"]
+          },
           "then": {
             "properties": {
               "verb": {
@@ -91,11 +145,28 @@
           }
         },
         {
-          "if": { "properties": { "type": { "const": "plt19-migration" } }, "required": ["type"] },
+          "if": {
+            "properties": { "type": { "enum": ["plt19", "plt19-migration"] } },
+            "required": ["type"]
+          },
           "then": {
             "properties": {
+              "verb": { "$ref": "#/$defs/upperVerb" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "icom-alert" } }, "required": ["type"] },
+          "then": {
+            "required": ["severity"],
+            "properties": {
               "verb": {
-                "enum": ["DRYRUN", "IMPORT", "SPOTCHECK", "STATE", "DONE", "FAIL"]
+                "enum": [
+                  "hub-key-fail-closed",
+                  "hub-key-restored",
+                  "sig-failure",
+                  "hub-sign-skip"
+                ]
               }
             }
           }
