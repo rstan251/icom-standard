@@ -8,7 +8,7 @@ import icom_expand as E
 FX = os.path.join(ROOT, "fixtures", "codebook-fixture.json")
 WORK = os.path.join(ROOT, ".work"); os.makedirs(WORK, mode=0o700, exist_ok=True)
 CB = E.Codebook(FX)
-T = "#iro-0a1b2c3d"
+T = "#tkt-0a1b2c3d"
 results = []
 
 def case(name):
@@ -154,6 +154,34 @@ def _():
     p = os.path.join(WORK, "cb-dict.yaml")
     open(p, "w").write("version: 0.0.1-t\nverbs: {GO: go, DONE: done}\nclients: {AAA: a}\nagents: {LEAD: l, DEV: d}\n")
     cb = E.Codebook(p); assert cb.version == "0.0.1-t" and "AAA" in cb.lanes and "INT0" in cb.lanes and not cb.shortcuts
+    assert cb.ticket_prefix == "tkt-"
+@case("ticket-prefix-default")
+def _():
+    assert CB.ticket_prefix == "tkt-"
+    assert ok("@LEAD>DEV #%s GO ops.deploy" % T[5:]) == "@LEAD>ICOM>DEV P2 INT0 %s GO ops.deploy" % T
+@case("ticket-prefix-explicit")
+def _():
+    pfx = "x" * 3 + "-"
+    hid = "0a1b2c3d"
+    full = "#" + pfx + hid
+    p = os.path.join(WORK, "cb-pfx.yaml")
+    open(p, "w").write(
+        "version: 0.0.2-t\nverbs: {GO: go, ACK: ack}\nagents: {LEAD: l, DEV: d, ICOM: i}\n"
+        "ticket_prefix: %s\n" % pfx
+    )
+    cb = E.Codebook(p)
+    assert cb.ticket_prefix == pfx
+    r, out = E.process("@LEAD>DEV %s GO ops.deploy" % full, cb)
+    assert r and out == "@LEAD>ICOM>DEV P2 INT0 %s GO ops.deploy" % full, out
+    r, out = E.process("@LEAD>DEV #%s GO ops.deploy" % hid, cb)
+    assert r and out == "@LEAD>ICOM>DEV P2 INT0 %s GO ops.deploy" % full, out
+    th = E.Thread()
+    r, out = E.process("@LEAD>DEV P1 %s GO ops.deploy" % full, cb, th)
+    assert r, out
+    r, out = E.process("@DEV>LEAD ACK ops.deploy", cb, th)
+    assert r and out == "@DEV>ICOM>LEAD P1 INT0 %s ACK ops.deploy" % full, out
+    r, out = E.process("@LEAD>DEV %s BOGUS ops.qc" % full, cb)
+    assert (not r) and (" %s NAK " % full) in out, out
 @case("cli-exit-codes")
 def _():
     buf = io.StringIO()

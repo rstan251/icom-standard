@@ -18,6 +18,7 @@ import argparse, hashlib, json, os, re, sys
 ENGINE_VERSION = "1.1.0"
 DEFAULT_PRI = "P2"
 DEFAULT_LANE = "INT0"
+DEFAULT_TICKET_PREFIX = "tkt-"   # codebook ticket_prefix; deployments may override
 PRIS = ("P0", "P1", "P2", "P3")
 P0_WHY = ("down", "outage", "sec", "money")       # P0 = client-down / outage / security / money at risk
 
@@ -74,11 +75,33 @@ class Codebook:
         self.paths = {str(k): str(v) for k, v in (d.get("paths") or {}).items()}
         sc = d.get("shortcuts") or {}
         self.shortcuts = {str(k): v for k, v in sc.items()}
+        self.ticket_prefix = _norm_ticket_prefix(d.get("ticket_prefix"))
+        self.ticket_re = _ticket_re(self.ticket_prefix)
+        self.ticket_find_re = _ticket_find_re(self.ticket_prefix)
         if not self.verbs: raise CodebookError("codebook has no verbs")
+
+def _norm_ticket_prefix(raw):
+    """Lowercase prefix ending in '-', no leading '#'. Default tkt-."""
+    if raw is None:
+        return DEFAULT_TICKET_PREFIX
+    p = str(raw).strip().lstrip("#").lower()
+    if not p:
+        return DEFAULT_TICKET_PREFIX
+    if not p.endswith("-"):
+        p += "-"
+    return p
+
+def _ticket_re(prefix):
+    return re.compile(
+        r"^(?:#%s([0-9a-f]{8})|#([0-9a-f]{8})|([0-9a-f]{4}#[0-9]{1,6})|(\^[a-z0-9]{4,8}))$"
+        % re.escape(prefix)
+    )
+
+def _ticket_find_re(prefix):
+    return re.compile(r"#%s[0-9a-f]{8}\b" % re.escape(prefix))
 
 # --- line grammar (v1.1 input). Hop ">ICOM>" optional; PRI, LANE, ticket optional (implied). ---
 HEAD = re.compile(r"^@([A-Z0-9]+)>(?:([A-Z0-9]+)>)?([A-Z0-9]+(?:,[A-Z0-9]+)*)$")
-TICKET = re.compile(r"^(?:#iro-([0-9a-f]{8})|#([0-9a-f]{8})|([0-9a-f]{4}#[0-9]{1,6})|(\^[a-z0-9]{4,8}))$")
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
 KV = re.compile(r"^[a-z][a-z0-9_.-]*=\S*$")
 
@@ -132,9 +155,9 @@ def expand(line, cb, thread=None):
     if i < len(toks) and re.match(r"^[A-Z0-9]{3,4}$", toks[i]) and toks[i] not in cb.verbs:
         if toks[i] not in cb.lanes: raise Nak("bad-lane", toks[i])
         lane = toks[i]; i += 1
-    if i < len(toks) and TICKET.match(toks[i]):
-        t = TICKET.match(toks[i])
-        ticket = "#iro-" + (t.group(1) or t.group(2)) if (t.group(1) or t.group(2)) else toks[i]
+    if i < len(toks) and cb.ticket_re.match(toks[i]):
+        t = cb.ticket_re.match(toks[i])
+        ticket = "#" + cb.ticket_prefix + (t.group(1) or t.group(2)) if (t.group(1) or t.group(2)) else toks[i]
         i += 1
     ticket = ticket or st.get("ticket")
     if not ticket: raise Nak("bad-ticket")
@@ -172,7 +195,7 @@ def expand(line, cb, thread=None):
             raise Nak("p0-misuse")
     tail = [expand_paths(t, cb) if t.startswith("f=") else t for t in tail]
     out = "@%s>ICOM>%s %s %s %s %s" % (frm, ",".join(tos), pri, lane, ticket, " ".join(body[:j] + [obj] + tail))
-    if ticket.startswith("#iro-"):
+    if ticket.startswith("#" + cb.ticket_prefix):
         thread.put(key, {"ticket": ticket, "pri": pri, "lane": lane})
     return out
 
@@ -182,7 +205,7 @@ def nak_line(line, nak, cb):
     """autoNAK back to sender, relay nak_line shape (+ cb= token)."""
     m = re.match(r"^@([A-Z0-9]+)", (line or "").strip())
     to = m.group(1) if m else "UNK"
-    t = re.search(r"#iro-[0-9a-f]{8}\b", line or "")
+    t = cb.ticket_find_re.search(line or "")
     tk = t.group(0) if t else "#icom-nak"
     out = "@ICOM>ICOM>%s P2 INT0 %s NAK org.proto why=%s" % (to, tk, nak.code)
     if nak.det: out += " det=" + _tok(nak.det)

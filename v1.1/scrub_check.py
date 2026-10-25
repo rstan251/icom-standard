@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """Scrub check for the public export: reports any IPs, hostnames, server ids,
-absolute filesystem paths, keys/tokens, emails, phone numbers, or denylisted
-names/codes. Exit 0 = 0 hits, 1 = hits found.
+absolute filesystem paths, keys/tokens, emails, phone numbers, short-id
+shapes, or denylisted names/codes. Exit 0 = 0 hits, 1 = hits found.
 
 Copyright (c) 2026 Robert Stanley / Iron Noodle Technologies. MIT License.
 
 Usage: scrub_check.py [--deny FILE] [DIR]
   --deny FILE  private denylist kept OUTSIDE the export, lines "code:XYZ"
                (case-sensitive whole token) or "name:word" (case-insensitive).
-Allowed by design: RFC 2606 reserved example domains, line-1 shebangs.
+Allowed by design: RFC 2606 reserved example domains, line-1 shebangs,
+public tkt- ticket placeholders.
 """
 import os, re, sys
 
@@ -26,8 +27,10 @@ PATTERNS = [
     ("secret-assign", re.compile(r"(?i)\b(?:api[_-]?key|secret|password|passwd|bearer|auth[_-]?token|access[_-]?token)\b\s*[:=]\s*['\"]?[A-Za-z0-9_\-./+]{8,}")),
     ("long-hex/b64", re.compile(r"\b[A-Za-z0-9_\-+/]{40,}={0,2}")),
     ("phone", re.compile(r"(?<![\w#.-])(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}\b")),
+    ("ticket-shape", re.compile(r"\b[a-z]{2,5}-[0-9a-f]{8}\b")),
 ]
 ALLOW_DOMAINS = re.compile(r"\bexample\.(?:com|org|net)\b|\.(?:test|invalid|example)\b", re.I)
+ALLOW_TICKET_SHAPE = re.compile(r"\btkt-[0-9a-f]{8}\b")  # public placeholder only
 
 def load_deny(path):
     codes, names = [], []
@@ -52,7 +55,7 @@ def scan(root, pats):
             except UnicodeDecodeError: hits.append((rel, 0, "binary", "-")); continue
             for i, line in enumerate(text.splitlines(), 1):
                 if i == 1 and line.startswith("#!"): continue
-                clean = ALLOW_DOMAINS.sub(" ", line)
+                clean = ALLOW_TICKET_SHAPE.sub(" ", ALLOW_DOMAINS.sub(" ", line))
                 for name, rx in pats:
                     for m in rx.finditer(clean): hits.append((rel, i, name, m.group(0)))
     return files, hits
