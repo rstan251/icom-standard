@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """Plain-assert tests for icom_expand.py. Run: python3 tests/test_icom_expand.py
 Copyright (c) 2026 Robert Stanley / Iron Noodle Technologies."""
-import hashlib, io, os, sys, contextlib
+import hashlib, io, json, os, sys, contextlib
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 import icom_expand as E
+import scrub_check as S
 FX = os.path.join(ROOT, "fixtures", "codebook-fixture.json")
 WORK = os.path.join(ROOT, ".work"); os.makedirs(WORK, mode=0o700, exist_ok=True)
 CB = E.Codebook(FX)
-T = "#iro-0a1b2c3d"
+T = "#tkt-0a1b2c3d"
 results = []
 
 def case(name):
@@ -154,6 +155,143 @@ def _():
     p = os.path.join(WORK, "cb-dict.yaml")
     open(p, "w").write("version: 0.0.1-t\nverbs: {GO: go, DONE: done}\nclients: {AAA: a}\nagents: {LEAD: l, DEV: d}\n")
     cb = E.Codebook(p); assert cb.version == "0.0.1-t" and "AAA" in cb.lanes and "INT0" in cb.lanes and not cb.shortcuts
+    assert cb.ticket_prefix == "tkt-"
+@case("ticket-prefix-default")
+def _():
+    assert CB.ticket_prefix == "tkt-"
+    assert ok("@LEAD>DEV #%s GO ops.deploy" % T[5:]) == "@LEAD>ICOM>DEV P2 INT0 %s GO ops.deploy" % T
+@case("ticket-prefix-explicit")
+def _():
+    pfx = "x" * 3 + "-"
+    hid = "0a1b2c3d"
+    full = "#" + pfx + hid
+    p = os.path.join(WORK, "cb-pfx.yaml")
+    open(p, "w").write(
+        "version: 0.0.2-t\nverbs: {GO: go, ACK: ack}\nagents: {LEAD: l, DEV: d, ICOM: i}\n"
+        "ticket_prefix: %s\n" % pfx
+    )
+    cb = E.Codebook(p)
+    assert cb.ticket_prefix == pfx
+    r, out = E.process("@LEAD>DEV %s GO ops.deploy" % full, cb)
+    assert r and out == "@LEAD>ICOM>DEV P2 INT0 %s GO ops.deploy" % full, out
+    r, out = E.process("@LEAD>DEV #%s GO ops.deploy" % hid, cb)
+    assert r and out == "@LEAD>ICOM>DEV P2 INT0 %s GO ops.deploy" % full, out
+    th = E.Thread()
+    r, out = E.process("@LEAD>DEV P1 %s GO ops.deploy" % full, cb, th)
+    assert r, out
+    r, out = E.process("@DEV>LEAD ACK ops.deploy", cb, th)
+    assert r and out == "@DEV>ICOM>LEAD P1 INT0 %s ACK ops.deploy" % full, out
+    r, out = E.process("@LEAD>DEV %s BOGUS ops.qc" % full, cb)
+    assert (not r) and (" %s NAK " % full) in out, out
+@case("engine-version-1.2.0")
+def _():
+    assert E.ENGINE_VERSION == "1.2.0"
+@case("ticket-prefix-legacy-default-nak")
+def _():
+    old = "#" + ("x" * 3 + "-") + "0a1b2c3d"
+    out = nak("@LEAD>DEV %s GO ops.deploy" % old, "bad-ticket")
+    assert "#icom-nak" in out and old not in out, out
+@case("ticket-prefix-legacy-explicit-keeps")
+def _():
+    pfx = "x" * 3 + "-"
+    hid = "0a1b2c3d"
+    full = "#" + pfx + hid
+    p = os.path.join(WORK, "cb-mig.yaml")
+    open(p, "w").write(
+        "version: 0.0.3-t\nverbs: {GO: go}\nagents: {LEAD: l, DEV: d, ICOM: i}\n"
+        "ticket_prefix: %s\n" % pfx
+    )
+    cb = E.Codebook(p)
+    r, out = E.process("@LEAD>DEV %s GO ops.deploy" % full, cb)
+    assert r and out == "@LEAD>ICOM>DEV P2 INT0 %s GO ops.deploy" % full, out
+@case("ticket-prefix-state-not-rewritten")
+def _():
+    pfx = "x" * 3 + "-"
+    hid = "0a1b2c3d"
+    old = "#" + pfx + hid
+    pth = os.path.join(WORK, "state-legacy.json")
+    if os.path.exists(pth): os.replace(pth, pth + ".old")
+    p = os.path.join(WORK, "cb-state.yaml")
+    open(p, "w").write(
+        "version: 0.0.3-t\nverbs: {GO: go, ACK: ack}\nagents: {LEAD: l, DEV: d, ICOM: i}\n"
+        "ticket_prefix: %s\n" % pfx
+    )
+    E.process("@LEAD>DEV P1 %s GO ops.deploy" % old, E.Codebook(p), E.Thread(pth))
+    r, out = E.process("@DEV>LEAD ACK ops.deploy", CB, E.Thread(pth))
+    assert r and old in out and T not in out, out
+@case("ticket-prefix-uc-normalized")
+def _():
+    assert ok("@LEAD>DEV #" + "TKT-" + "0a1b2c3d GO ops.deploy") == \
+        "@LEAD>ICOM>DEV P2 INT0 %s GO ops.deploy" % T
+@case("ticket-prefix-rejects-invalid")
+def _():
+    head = "version: 0.0.3-t\nverbs: {GO: go}\nagents: {LEAD: l}\n"
+    samples = [
+        'ticket_prefix: ""\n',
+        "ticket_prefix:\n",
+        "ticket_prefix: \"-\"\n",
+        'ticket_prefix: "a b"\n',
+        "ticket_prefix: TKT-\n",
+        "ticket_prefix: tkt\n",
+        'ticket_prefix: "#"\n',
+        'ticket_prefix: "x--"\n',
+        'ticket_prefix: "a.b"\n',
+        "ticket_prefix: true\n",
+        "ticket_prefix: 0\n",
+    ]
+    p = os.path.join(WORK, "cb-bad.yaml")
+    for extra in samples:
+        open(p, "w").write(head + extra)
+        try:
+            E.Codebook(p)
+            assert False, "accepted %r" % extra
+        except E.CodebookError as e:
+            assert "ticket_prefix" in str(e), (extra, e)
+    pj = os.path.join(WORK, "cb-bad.json")
+    json.dump({"version": "0.0.3-t", "verbs": ["GO"], "ticket_prefix": ["a"]}, open(pj, "w"))
+    try:
+        E.Codebook(pj)
+        assert False, "accepted list"
+    except E.CodebookError as e:
+        assert "ticket_prefix" in str(e), e
+@case("scrub-allow-exact-placeholders")
+def _():
+    assert S.ticket_shape_hits("see tkt-0a1b2c3d here") == []
+    assert S.ticket_shape_hits("form tkt-xxxxxxxx used") == []
+@case("scrub-allow-not-any-hex")
+def _():
+    other = "tkt-" + "9f8e7d6c"
+    hits = S.ticket_shape_hits("id " + other)
+    assert hits and any(h.lower().endswith("9f8e7d6c") for h in hits), hits
+@case("scrub-bypass-case")
+def _():
+    samples = [
+        "".join(("I", "R", "O")) + "-" + "0A1B2C3D",
+        "".join(("I", "r", "o")) + "-" + "0a1b2c3d",
+        "".join(("P", "L", "T")) + "-" + "1234ABCD",
+    ]
+    for s in samples:
+        assert S.ticket_shape_hits(s), s
+@case("scrub-bypass-underscore")
+def _():
+    s = "".join(("i", "r", "o")) + "_" + "0a1b2c3d"
+    assert S.ticket_shape_hits(s), s
+@case("scrub-bypass-no-separator")
+def _():
+    s = "".join(("i", "r", "o")) + "0a1b2c3d"
+    assert S.ticket_shape_hits(s), s
+@case("scrub-bypass-long-prefix")
+def _():
+    s = "noodle" + "-" + "0a1b2c3d"
+    assert S.ticket_shape_hits(s), s
+@case("scrub-bypass-glued-placeholder")
+def _():
+    s = "".join(("i", "r", "o")) + "-" + "tkt-0a1b2c3d"
+    assert S.ticket_shape_hits(s), s
+@case("scrub-false-positive-rel-inv")
+def _():
+    assert S.ticket_shape_hits("rel-20261025") == []
+    assert S.ticket_shape_hits("inv-12345678") == []
 @case("cli-exit-codes")
 def _():
     buf = io.StringIO()
