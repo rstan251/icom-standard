@@ -8,8 +8,10 @@ Copyright (c) 2026 Robert Stanley / Iron Noodle Technologies. MIT License.
 Usage: scrub_check.py [--deny FILE] [DIR]
   --deny FILE  private denylist kept OUTSIDE the export, lines "code:XYZ"
                (case-sensitive whole token) or "name:word" (case-insensitive).
+Default DIR is this file's directory (v1.1/), not the repo root.
 Allowed by design: RFC 2606 reserved example domains, line-1 shebangs,
-public tkt- ticket placeholders.
+exact public placeholders tkt-0a1b2c3d and tkt-xxxxxxxx. All-digit
+8-char tails (rel-/inv- style dates and numbers) are not flagged.
 """
 import os, re, sys
 
@@ -27,10 +29,21 @@ PATTERNS = [
     ("secret-assign", re.compile(r"(?i)\b(?:api[_-]?key|secret|password|passwd|bearer|auth[_-]?token|access[_-]?token)\b\s*[:=]\s*['\"]?[A-Za-z0-9_\-./+]{8,}")),
     ("long-hex/b64", re.compile(r"\b[A-Za-z0-9_\-+/]{40,}={0,2}")),
     ("phone", re.compile(r"(?<![\w#.-])(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}\b")),
-    ("ticket-shape", re.compile(r"\b[a-z]{2,5}-[0-9a-f]{8}\b")),
+    ("ticket-shape", re.compile(
+        r"(?i)(?<![A-Za-z0-9])[a-z]{2,12}[-_]?(?![0-9]{8}(?![0-9a-f]))[0-9a-f]{8}(?![0-9a-f])"
+    )),
 ]
 ALLOW_DOMAINS = re.compile(r"\bexample\.(?:com|org|net)\b|\.(?:test|invalid|example)\b", re.I)
-ALLOW_TICKET_SHAPE = re.compile(r"\btkt-[0-9a-f]{8}\b")  # public placeholder only
+# Exact public placeholders only. Lookbehind keeps a prefix glued on (x-tkt-…) a hit.
+ALLOW_TICKET_SHAPE = re.compile(
+    r"(?i)(?<![A-Za-z0-9_-])(?:tkt-0a1b2c3d|tkt-xxxxxxxx)(?![0-9a-fA-Fx])"
+)
+
+def ticket_shape_hits(text):
+    """Ticket-shape matches in text after allowlists. Used by tests."""
+    clean = ALLOW_TICKET_SHAPE.sub(" ", ALLOW_DOMAINS.sub(" ", text))
+    rx = next(rx for name, rx in PATTERNS if name == "ticket-shape")
+    return [m.group(0) for m in rx.finditer(clean)]
 
 def load_deny(path):
     codes, names = [], []
