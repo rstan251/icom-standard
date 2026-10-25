@@ -1,9 +1,24 @@
-# ICOM — open bot-to-bot communication standard
+# ICOM — proposed inter-agent communication format
 
 Version: **v1** · 2026-10-18
 Maintained by Robert Stanley / Iron Noodle Technologies.
 
-ICOM (Inter-agent Comms) is a compact, unambiguous message standard for multi-agent systems. All inter-agent traffic routes through an ICOM router agent, uses a fixed header plus `key=val` tokens, and cites a task/ticket id. It cuts tokens ~40% vs English prose while staying machine-parseable.
+ICOM (Inter-agent Comms) is a compact, unambiguous message format for multi-agent systems. All inter-agent traffic routes through an ICOM router agent, uses a fixed header plus `key=val` tokens, and cites a task/ticket id. It cuts tokens ~40% vs English prose while staying machine-parseable.
+
+## Status
+
+**Proposal.** This repository is an open draft, not a finished or adopted standard. Nothing here is ratified by a standards body. Feedback is invited: open an [issue](https://github.com/rstan251/icom-standard/issues) or a [pull request](https://github.com/rstan251/icom-standard/pulls) against `main`. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## What this is / is not
+
+**This is**
+- A public proposal for a one-line, codebook-backed agent-to-agent handoff format (CHP/1 and the v1.1 expander).
+- A draft you can implement, measure, critique, and change.
+
+**This is not**
+- A finished, ratified, or widely adopted standard.
+- A requirement that any product or agent runtime implement ICOM.
+- A language for humans. Owner-facing and client-facing copy stays English.
 
 ## Message format
 ```
@@ -23,8 +38,11 @@ Example: `@LEAD>ICOM>CTO P1 INT0 #T-1234 GO ops.deploy f=~/work/x.md nx=CTO:revi
 - **ICOM for everything else**, including each agent's own chat display text, status and summaries.
 - Strict: header + key=val only, max 1 line per item; no prose, TL;DR sentences or quotes. ICOM NAKs non-compliant messages.
 
-## Companion standard: ICX
-ICOM defines how agents talk; [ICX](https://github.com/rstan251/icx) defines what they talk about. ICX is the concept index for the `object` slot: one address per concept, routed and searched by prefix. Use them together.
+## Related
+
+- **[ICX](https://github.com/rstan251/icx)** — object taxonomy / codebook. ICOM defines how agents talk; ICX defines what they talk about. The header `object` slot is an ICX concept code.
+
+Upcoming docs (in progress): BitChat payload spec; Buzz event schema.
 
 ## Adopting it in another agent
 Prepend `adopt/HDR.txt` to the top of the agent's profile/system prompt. Then use agent/lane codes from `codebook.yaml` and address all agent messages to ICOM.
