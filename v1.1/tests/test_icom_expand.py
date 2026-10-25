@@ -219,7 +219,7 @@ def _():
     E.process("@LEAD>DEV P1 %s GO ops.deploy" % old, E.Codebook(p), E.Thread(pth))
     r, out = E.process("@DEV>LEAD ACK ops.deploy", CB, E.Thread(pth))
     assert r and old in out and T not in out, out
-@case("ticket-prefix-uppercase-input-normalized")
+@case("ticket-prefix-uc-normalized")
 def _():
     assert ok("@LEAD>DEV #" + "TKT-" + "0a1b2c3d GO ops.deploy") == \
         "@LEAD>ICOM>DEV P2 INT0 %s GO ops.deploy" % T
