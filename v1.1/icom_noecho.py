@@ -9,13 +9,15 @@ Copyright (c) 2026 Robert Stanley / Iron Noodle Technologies. MIT License.
 
 No network, no model calls. Python 3 standard library only.
 """
+import os
 from collections import defaultdict
 
 ENGINE_VERSION = "1.2.0"
 QUIET = frozenset({"DONE", "FYI", "ACK", "REC"})
 ACTION = frozenset({"GO", "HOLD", "ASK", "BLOCKED", "NAK"})
+FLAG_VERB = "FLAG"        # loop flag: not quiet, never suppressed
 WINDOW_S = 21600          # 6h reference default
-LOOP_N = 12
+LOOP_N = 50
 LOOP_S = 86400            # 24h
 LEAD_LANES = frozenset({"LEAD", "OWNER"})
 
@@ -41,7 +43,7 @@ def sender_ok(prev_verb, new_verb, new_state_change=False):
     """
     if not prev_verb or not is_quiet(prev_verb):
         return True
-    if is_action(new_verb):
+    if is_action(new_verb) or new_verb == FLAG_VERB:
         return True
     if new_verb == "DONE" and new_state_change:
         return True
@@ -52,21 +54,73 @@ def relay_key(msg):
     return (msg["sender"], msg["item"], msg["verb"])
 
 
-class Relay:
-    """In-window suppress of repeat quiet verbs, keyed on (sender, item, verb)."""
+def _park(path):
+    """Set a corrupt state file aside. Never delete it."""
+    dest, n = path + ".old", 1
+    while os.path.exists(dest):
+        dest = "%s.old.%d" % (path, n)
+        n += 1
+    os.replace(path, dest)
+    return dest
 
-    def __init__(self, window_s=WINDOW_S):
+
+class Relay:
+    """In-window suppress of repeat quiet verbs, keyed on (sender, item, verb).
+
+    The window is fixed from the first relayed line: a suppress does not
+    slide or extend it. Echo-check errors fail open (deliver + log).
+    """
+
+    def __init__(self, window_s=WINDOW_S, state_path=None):
         self.window_s = window_s
-        self.last = {}          # key -> timestamp
+        self.state_path = state_path
+        self.last = {}          # key -> timestamp of first relay in window
         self.log = []           # disposition records (never silent)
+        if state_path:
+            self.load_state(state_path)
+
+    def load_state(self, path):
+        """Load {key: ts}. Corrupt files are parked, never deleted."""
+        if not path or not os.path.exists(path):
+            self.last = {}
+            return
+        try:
+            import json
+            raw = json.load(open(path))
+            if not isinstance(raw, dict):
+                raise ValueError("state is not an object")
+            self.last = {tuple(k.split("|")) if isinstance(k, str) else tuple(k): int(v)
+                         for k, v in raw.items()}
+        except Exception as e:
+            parked = _park(path)
+            self.last = {}
+            self.log.append({
+                "disposition": "fail-open", "why": "state-corrupt",
+                "parked": parked, "err": str(e)[:80],
+            })
 
     def handle(self, msg, now):
         """Return {disposition, deliver_to, record}.
 
-        disposition: 'relay' | 'suppress' | 'pass'
-        Action verbs always pass. First quiet verb in the window is relayed.
-        A suppressed quiet verb still goes to LEAD and OWNER.
+        disposition: 'relay' | 'suppress' | 'pass' | 'fail-open'
+        Action verbs and FLAG always pass. First quiet verb in the window
+        is relayed. A suppressed quiet verb is delivered only to LEAD or
+        OWNER already in the addressed recipients. Echo errors fail open.
         """
+        try:
+            return self._handle(msg, now)
+        except Exception as e:
+            to = list((msg or {}).get("to") or [])
+            rec = {
+                "ts": now, "sender": (msg or {}).get("sender"),
+                "item": (msg or {}).get("item"), "verb": (msg or {}).get("verb"),
+                "id": (msg or {}).get("id"), "disposition": "fail-open",
+                "why": "echo-error", "err": str(e)[:80],
+            }
+            self.log.append(rec)
+            return {"disposition": "fail-open", "deliver_to": to, "record": rec}
+
+    def _handle(self, msg, now):
         verb = msg["verb"]
         to = list(msg.get("to") or [])
         rec = {
@@ -85,8 +139,9 @@ class Relay:
             rec["why"] = "echo"
             rec["key"] = "%s:%s:%s" % key
             self.log.append(rec)
-            lead = sorted((set(to) | LEAD_LANES) & LEAD_LANES)
-            return {"disposition": "suppress", "deliver_to": lead, "record": rec}
+            # no-slide: do not write last[key] on suppress
+            keep = [a for a in to if a in LEAD_LANES]
+            return {"disposition": "suppress", "deliver_to": keep, "record": rec}
 
         self.last[key] = now
         rec["disposition"] = "relay"
@@ -95,37 +150,31 @@ class Relay:
 
 
 def collapse_backlog(msgs, resume_ts=None):
-    """After a pause or cap: one newest quiet line per item; keep action lines.
+    """Keep the first quiet line per (from, ticket, verb); drop later echoes.
 
-    Quiet lines older than resume_ts are stale: kept for context if newest,
-    but marked no_reply so they are never answered.
+    Action lines pass through. The kept quiet line notes collapsed_n and
+    is never answered (no_reply). Quiet lines older than resume_ts are stale.
     """
-    by_item = defaultdict(list)
-    order = []
+    first = {}              # (sender, item, verb) -> (index, copy)
+    counts = defaultdict(int)
+    passthrough = []        # (index, msg) for non-quiet
     for i, m in enumerate(msgs):
-        by_item[m["item"]].append((i, m))
-        if m["item"] not in order:
-            order.append(m["item"])
-    out = []
-    for item in order:
-        rows = by_item[item]
-        actions = [(i, m) for i, m in rows if is_action(m["verb"])]
-        quiets = [(i, m) for i, m in rows if is_quiet(m["verb"])]
-        other = [(i, m) for i, m in rows if not is_quiet(m["verb"]) and not is_action(m["verb"])]
-        kept = actions + other
-        if quiets:
-            newest = max(quiets, key=lambda r: (r[1].get("ts", r[0]), r[0]))
-            q = dict(newest[1])
-            # Collapsed quiet lines are never answered (rule 18.3), including
-            # those older than the resume instant.
-            q["no_reply"] = True
-            q["collapsed_n"] = len(quiets)
-            if resume_ts is not None and q.get("ts", 0) < resume_ts:
-                q["stale"] = True
-            kept.append((newest[0], q))
-        kept.sort(key=lambda r: r[0])
-        out.extend(m for _, m in kept)
-    return out
+        if is_quiet(m["verb"]):
+            key = (m["sender"], m["item"], m["verb"])
+            counts[key] += 1
+            if key not in first:
+                q = dict(m)
+                q["no_reply"] = True
+                if resume_ts is not None and q.get("ts", 0) < resume_ts:
+                    q["stale"] = True
+                first[key] = (i, q)
+        else:
+            passthrough.append((i, m))
+    for key, (i, q) in first.items():
+        q["collapsed_n"] = counts[key]
+    kept = passthrough + list(first.values())
+    kept.sort(key=lambda r: r[0])
+    return [m for _, m in kept]
 
 
 def unique_completions(msgs):
@@ -154,5 +203,35 @@ def loop_items(msgs, now, n=LOOP_N, window_s=LOOP_S):
     return sorted(item for item, c in counts.items() if c > n)
 
 
+def quiet_count(msgs, item, now, window_s=LOOP_S):
+    n = 0
+    for m in msgs:
+        if m.get("item") != item or not is_quiet(m.get("verb")):
+            continue
+        if now - m.get("ts", 0) <= window_s:
+            n += 1
+    return n
+
+
 def loop_flag_line(item, count, version="1.6.0"):
-    return "@ICOM>ICOM>LEAD P1 INT0 %s FYI echo.loop why=echo n=%d cb=%s" % (item, count, version)
+    """Non-quiet FLAG to LEAD,OWNER. Never itself a quiet/suppressible verb."""
+    return "@ICOM>ICOM>LEAD,OWNER P1 INT0 %s FLAG echo.loop why=echo n=%d cb=%s" % (
+        item, count, version)
+
+
+class LoopWatch:
+    """Emit at most one FLAG per ticket per loop window."""
+
+    def __init__(self, n=LOOP_N, window_s=LOOP_S):
+        self.n, self.window_s = n, window_s
+        self.flagged = {}       # item -> ts of last FLAG
+
+    def consider(self, msgs, now):
+        out = []
+        for item in loop_items(msgs, now, self.n, self.window_s):
+            prev = self.flagged.get(item)
+            if prev is not None and now - prev < self.window_s:
+                continue
+            self.flagged[item] = now
+            out.append(loop_flag_line(item, quiet_count(msgs, item, now, self.window_s)))
+        return out

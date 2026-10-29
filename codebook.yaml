@@ -12,6 +12,7 @@ verbs:       # header slot 4; maps to house codes D/R/F/O/Q/A
   ASK: question needing answer (house Q)
   ACK: received/understood
   NAK: rejected/cannot parse
+  FLAG: echo-loop alert (rule 18); not quiet, never suppressed
 priority: {P0: drop everything, P1: today, P2: this week, P3: whenever}
 agents:
   LEAD: lead agent (coordinates; only agent that speaks English to the owner)
@@ -112,7 +113,7 @@ fields:      # key=value keys
   scope: client/tenant scope (e.g. scope=CL14)  # added 1.4.0
 echo:        # added 1.6.0 — rule 18 NO-ECHO tunables (seconds)
   window_s: 21600
-  loop_n: 12
+  loop_n: 50
   loop_s: 86400
 paths:       # optional aliases, expand by prefix
   "%w": ~/work

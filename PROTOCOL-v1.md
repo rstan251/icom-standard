@@ -126,18 +126,20 @@ Designed against a class of failure: agents answered each other's terminal and i
 ### 18.2 Relay
 - Suppress a repeat quiet verb from the same sender on the same ticket within a window (reference default: 6h).
 - Key: `(from, ticket, verb)`. Not message ID. Message-ID dedup alone does not satisfy this rule.
-- Disposition of a suppressed line: log it as suppressed (never a silent drop). Deliver it to OWNER and LEAD. Do not fan it out to other agents.
-- Action verbs are never suppressed by this rule. The first quiet verb in a window is relayed normally.
+- Disposition of a suppressed line: log it as suppressed (never a silent drop). Deliver it to LEAD or OWNER only when they are already among the addressed recipients. Do not add LEAD or OWNER. Do not fan it out to other agents.
+- Action verbs and FLAG are never suppressed by this rule. The first quiet verb in a window is relayed normally.
+- A suppressed repeat does not extend the window. The clock stays on the first relayed line for that key.
+- If echo checking errors, deliver the line and log the error (fail-open). Corrupt state files are set aside (parked as `.old`), never deleted.
 - Do not emit a NAK solely because a line was suppressed (NAK is new traffic).
 
 ### 18.3 Backlog / replay
-- After a pause, cap, or reconnect: before acting, collapse repeated quiet verbs per ticket (keep the newest quiet line per ticket; keep action lines).
+- After a pause, cap, or reconnect: before acting, collapse repeated quiet verbs. Keep the first (original) quiet line per `(from, ticket, verb)`; drop later echoes and note the collapsed count on the kept line. Keep action lines.
 - Never reply to a quiet verb that is stale (already acted on, older than the newest line on that ticket, or dated before the pause).
 
 ### 18.4 Metrics
 - Progress and DONE counts use distinct `(ticket, from, state)` completions, not raw DONE lines. `state` is the work-item status in the system of record (or the object plus outcome if no SoR status is cited).
 - The ticket's status in the system of record wins over any message count.
-- Loop flag: more than 12 quiet verbs on one ticket within 24h → `@ICOM>LEAD … FYI echo.loop why=echo n=<count>` for human triage. Do not treat the count as progress. Relays MAY lower 12.
+- Loop flag: more than 50 quiet verbs on one ticket within 24h → one `@ICOM>LEAD,OWNER … FLAG echo.loop why=echo n=<count>` per ticket per 24h window, for human triage. FLAG is not quiet and must never be suppressed by this rule. Do not treat the count as progress. Relays MAY lower 50.
 
 ### Example — non-conformant loop (must not happen)
 ```
@@ -147,7 +149,7 @@ Designed against a class of failure: agents answered each other's terminal and i
 @QC>ICOM>INT P2 CL13 #T-1001 DONE contacts.import
 @INT>ICOM>QC P2 CL13 #T-1001 DONE contacts.import
 ```
-18.1: QC does not ACK the DONE; INT does not ACK an ACK; neither sends DONE in reply to a quiet verb. If those lines are sent anyway, 18.2: INT's second DONE on #T-1001 within 6h is not fanned out (LEAD and OWNER still receive it; relay log: suppressed, why=echo, key=INT:#T-1001:DONE). Peers do not.
+18.1: QC does not ACK the DONE; INT does not ACK an ACK; neither sends DONE in reply to a quiet verb. If those lines are sent anyway, 18.2: INT's second DONE on #T-1001 within 6h is not fanned out (relay log: suppressed, why=echo, key=INT:#T-1001:DONE). LEAD/OWNER receive it only if they were already addressed; they are not added. Peers do not.
 
 ### Example — conformant follow-up
 ```

@@ -5,6 +5,7 @@ import os, sys
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 import icom_noecho as N
+WORK = os.path.join(ROOT, ".work"); os.makedirs(WORK, mode=0o700, exist_ok=True)
 
 T = "#iro-0a1b2c3d"
 T2 = "#iro-aabbccdd"
@@ -67,12 +68,21 @@ def _():
     r.handle(M("DEV", "DONE", to=["QA"], ts=0, mid="m1"), 0)
     out = r.handle(M("DEV", "DONE", to=["QA"], ts=60, mid="m2"), 60)
     assert out["disposition"] == "suppress", out
-    assert set(out["deliver_to"]) == {"LEAD", "OWNER"}
-    assert "QA" not in out["deliver_to"]
+    assert out["deliver_to"] == []          # QA is not LEAD/OWNER
     rec = r.log[-1]
     assert rec["disposition"] == "suppressed" and rec["why"] == "echo"
     assert rec["key"] == "DEV:%s:DONE" % T
     assert rec["id"] == "m2"          # keyed on sender/item/verb, not id
+
+@case("relay-suppress-only-addressed-lead")
+def _():
+    r = N.Relay()
+    r.handle(M("DEV", "DONE", to=["QA", "LEAD"], ts=0), 0)
+    out = r.handle(M("DEV", "DONE", to=["QA", "LEAD"], ts=10), 10)
+    assert out["disposition"] == "suppress"
+    assert out["deliver_to"] == ["LEAD"]
+    assert "QA" not in out["deliver_to"]
+    assert "OWNER" not in out["deliver_to"]   # not an addressee
 
 @case("relay-other-sender-done-relays")
 def _():
@@ -96,12 +106,41 @@ def _():
     out = r.handle(M("DEV", "DONE", to=["QA"], ts=N.WINDOW_S), N.WINDOW_S)
     assert out["disposition"] == "relay"
 
+@case("relay-suppress-does-not-slide")
+def _():
+    r = N.Relay()
+    r.handle(M("DEV", "DONE", to=["QA"], ts=0), 0)
+    mid = r.handle(M("DEV", "DONE", to=["QA"], ts=N.WINDOW_S - 1), N.WINDOW_S - 1)
+    assert mid["disposition"] == "suppress"
+    out = r.handle(M("DEV", "DONE", to=["QA"], ts=N.WINDOW_S), N.WINDOW_S)
+    assert out["disposition"] == "relay"     # clock stayed on the first relay
+
 @case("relay-ack-repeat-same-sender-suppressed")
 def _():
     r = N.Relay()
     r.handle(M("QA", "ACK", to=["DEV"], ts=0), 0)
     out = r.handle(M("QA", "ACK", to=["DEV"], ts=5), 5)
     assert out["disposition"] == "suppress"
+
+@case("relay-fail-open-on-error")
+def _():
+    r = N.Relay()
+    out = r.handle({"sender": "DEV", "to": ["QA"]}, 0)   # missing verb/item
+    assert out["disposition"] == "fail-open"
+    assert out["deliver_to"] == ["QA"]
+    assert r.log[-1]["why"] == "echo-error"
+
+@case("relay-corrupt-state-parked")
+def _():
+    p = os.path.join(WORK, "echo-state.json")
+    open(p, "w").write("{not-json")
+    r = N.Relay(state_path=p)
+    assert r.last == {}
+    assert os.path.exists(p + ".old")
+    assert not os.path.exists(p)
+    assert any(x.get("why") == "state-corrupt" for x in r.log)
+    out = r.handle(M("DEV", "DONE", to=["QA"], ts=0), 0)
+    assert out["disposition"] == "relay"
 
 # --- loop scenario from SPEC.md ---
 @case("loop-vector-expected-suppress")
@@ -121,8 +160,8 @@ def _():
         got.append(r.handle(m, ts)["disposition"])
     assert got == ["relay", "relay", "relay", "relay", "suppress"], got
     assert r.log[-1]["why"] == "echo"
-    assert set(r.handle(M("DEV", "DONE", to=["QA"], ts=4, mid="id-4"), 4)["deliver_to"]) <= {"LEAD", "OWNER"}
-    # a later action verb on the same item is not touched
+    # t4 was addressed only to QA, so LEAD/OWNER are not injected
+    assert r.handle(M("DEV", "DONE", to=["QA"], ts=4, mid="id-4"), 4)["deliver_to"] == []
     act = r.handle(M("QA", "ASK", to=["DEV"], ts=5, mid="id-5"), 5)
     assert act["disposition"] == "pass"
 
@@ -134,8 +173,8 @@ def _():
     assert not N.sender_ok("DONE", "DONE")
     assert N.sender_ok("DONE", "ASK")
 
-# --- 18.3 backlog ---
-@case("backlog-collapses-quiet-per-item")
+# --- 18.3 backlog: first quiet per (from, ticket, verb) ---
+@case("backlog-keeps-first-quiet-key")
 def _():
     msgs = [
         M("DEV", "DONE", ts=1, mid="a"),
@@ -146,9 +185,13 @@ def _():
     ]
     out = N.collapse_backlog(msgs, resume_ts=10)
     quiets = [m for m in out if N.is_quiet(m["verb"])]
-    assert len(quiets) == 1
-    assert quiets[0]["ts"] == 5 and quiets[0]["no_reply"] is True
-    assert quiets[0]["collapsed_n"] == 5
+    assert len(quiets) == 4
+    by = {(m["sender"], m["verb"]): m for m in quiets}
+    assert by[("DEV", "DONE")]["ts"] == 1 and by[("DEV", "DONE")]["collapsed_n"] == 2
+    assert by[("QA", "ACK")]["ts"] == 2 and by[("QA", "ACK")]["collapsed_n"] == 1
+    assert by[("DEV", "ACK")]["ts"] == 3
+    assert by[("QA", "DONE")]["ts"] == 4
+    assert all(m["no_reply"] for m in quiets)
 
 @case("backlog-keeps-action-stale-quiet")
 def _():
@@ -162,7 +205,7 @@ def _():
     assert verbs == ["GO", "DONE"]
     quiet = [m for m in out if m["verb"] == "DONE"][0]
     assert quiet["no_reply"] is True and quiet.get("stale") is True
-    assert quiet["ts"] == 3
+    assert quiet["ts"] == 2 and quiet["collapsed_n"] == 2   # first, not latest
 
 @case("backlog-two-items-collapse-separately")
 def _():
@@ -175,7 +218,8 @@ def _():
     out = N.collapse_backlog(msgs)
     assert len(out) == 2
     by = {m["item"]: m for m in out}
-    assert by[T]["ts"] == 2 and by[T2]["ts"] == 3
+    assert by[T]["ts"] == 1 and by[T2]["ts"] == 1
+    assert by[T]["collapsed_n"] == 2 and by[T2]["collapsed_n"] == 2
     assert by[T]["no_reply"] and by[T2]["no_reply"]
 
 # --- 18.4 metrics ---
@@ -201,23 +245,23 @@ def _():
 
 @case("metrics-sor-state-wins-over-missing")
 def _():
-    # no explicit state -> object is the proxy
     msgs = [M("DEV", "DONE", obj="ops.qc", ts=1), M("DEV", "DONE", obj="ops.qc", ts=2)]
     assert N.progress_count(msgs) == 1
     assert N.completion_state(M("DEV", "DONE", state="done", obj="ops.qc")) == "done"
 
-@case("metrics-loop-flag-over-12-in-24h")
+@case("metrics-loop-flag-over-50-in-24h")
 def _():
-    msgs = [M("DEV", "DONE", ts=i * 60, mid="x%d" % i) for i in range(13)]
-    flagged = N.loop_items(msgs, now=13 * 60)
+    msgs = [M("DEV", "DONE", ts=i * 60, mid="x%d" % i) for i in range(51)]
+    flagged = N.loop_items(msgs, now=51 * 60)
     assert flagged == [T]
-    line = N.loop_flag_line(T, 13)
-    assert line.startswith("@ICOM>ICOM>LEAD P1 INT0 %s FYI echo.loop why=echo n=13" % T)
+    line = N.loop_flag_line(T, 51)
+    assert line.startswith("@ICOM>ICOM>LEAD,OWNER P1 INT0 %s FLAG echo.loop why=echo n=51" % T)
+    assert " FYI " not in line
 
-@case("metrics-loop-flag-12-is-not-a-loop")
+@case("metrics-loop-flag-50-is-not-a-loop")
 def _():
-    msgs = [M("DEV", "ACK", ts=i, mid="y%d" % i) for i in range(12)]
-    assert N.loop_items(msgs, now=12) == []
+    msgs = [M("DEV", "ACK", ts=i, mid="y%d" % i) for i in range(50)]
+    assert N.loop_items(msgs, now=50) == []
 
 @case("metrics-loop-ignores-old-quiet")
 def _():
@@ -228,6 +272,25 @@ def _():
 def _():
     msgs = [M("LEAD", "GO", ts=i, mid="g%d" % i) for i in range(20)]
     assert N.loop_items(msgs, now=20) == []
+
+@case("loop-flag-once-per-ticket-window")
+def _():
+    w = N.LoopWatch()
+    msgs = [M("DEV", "DONE", ts=i, mid="z%d" % i) for i in range(51)]
+    a = w.consider(msgs, now=51)
+    b = w.consider(msgs, now=52)
+    assert len(a) == 1 and len(b) == 0, (a, b)
+    later = [M("DEV", "DONE", ts=51 + N.LOOP_S - 50 + i, mid="w%d" % i) for i in range(51)]
+    c = w.consider(later, now=51 + N.LOOP_S)
+    assert len(c) == 1, c
+
+@case("loop-flag-never-suppressed")
+def _():
+    r = N.Relay()
+    flag = M("ICOM", "FLAG", to=["LEAD", "OWNER"], ts=0, mid="f1", obj="echo.loop")
+    assert not N.is_quiet("FLAG")
+    assert r.handle(flag, 0)["disposition"] == "pass"
+    assert r.handle(flag, 1)["disposition"] == "pass"
 
 if __name__ == "__main__":
     fails = [r for r in results if not r[1]]
