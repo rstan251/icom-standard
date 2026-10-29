@@ -7,8 +7,8 @@ sys.path.insert(0, ROOT)
 import icom_noecho as N
 WORK = os.path.join(ROOT, ".work"); os.makedirs(WORK, mode=0o700, exist_ok=True)
 
-T = "#iro-0a1b2c3d"
-T2 = "#iro-aabbccdd"
+T = "#T-1001"
+T2 = "#T-1002"
 results = []
 
 def case(name):
@@ -19,11 +19,15 @@ def case(name):
         return fn
     return deco
 
-def M(sender, verb, item=T, to=None, ts=0, mid=None, state=None, obj="ops.qc"):
+def M(sender, verb, item=T, to=None, ts=0, mid=None, state=None, obj="ops.qc",
+      action=None, **kv):
     d = {"sender": sender, "verb": verb, "item": item, "to": to or ["QA"],
          "ts": ts, "id": mid or ("%s-%s-%s" % (sender, verb, ts)), "object": obj}
     if state is not None:
         d["state"] = state
+    if action is not None:
+        d["action"] = action
+    d.update(kv)
     return d
 
 # --- 18.1 sender ---
@@ -71,8 +75,8 @@ def _():
     assert out["deliver_to"] == []          # QA is not LEAD/OWNER
     rec = r.log[-1]
     assert rec["disposition"] == "suppressed" and rec["why"] == "echo"
-    assert rec["key"] == "DEV:%s:DONE" % T
-    assert rec["id"] == "m2"          # keyed on sender/item/verb, not id
+    assert rec["key"].startswith("DEV:%s:DONE:" % T)
+    assert rec["id"] == "m2"          # keyed on sender/item/verb/body, not id
 
 @case("relay-suppress-only-addressed-lead")
 def _():
@@ -173,7 +177,7 @@ def _():
     assert not N.sender_ok("DONE", "DONE")
     assert N.sender_ok("DONE", "ASK")
 
-# --- 18.3 backlog: first quiet per (from, ticket, verb) ---
+# --- 18.3 backlog: first quiet per ticket; reset starts a new group ---
 @case("backlog-keeps-first-quiet-key")
 def _():
     msgs = [
@@ -185,13 +189,9 @@ def _():
     ]
     out = N.collapse_backlog(msgs, resume_ts=10)
     quiets = [m for m in out if N.is_quiet(m["verb"])]
-    assert len(quiets) == 4
-    by = {(m["sender"], m["verb"]): m for m in quiets}
-    assert by[("DEV", "DONE")]["ts"] == 1 and by[("DEV", "DONE")]["collapsed_n"] == 2
-    assert by[("QA", "ACK")]["ts"] == 2 and by[("QA", "ACK")]["collapsed_n"] == 1
-    assert by[("DEV", "ACK")]["ts"] == 3
-    assert by[("QA", "DONE")]["ts"] == 4
-    assert all(m["no_reply"] for m in quiets)
+    assert len(quiets) == 1
+    assert quiets[0]["ts"] == 1 and quiets[0]["sender"] == "DEV"
+    assert quiets[0]["collapsed_n"] == 4 and quiets[0]["no_reply"] is True
 
 @case("backlog-keeps-action-stale-quiet")
 def _():
@@ -205,7 +205,7 @@ def _():
     assert verbs == ["GO", "DONE"]
     quiet = [m for m in out if m["verb"] == "DONE"][0]
     assert quiet["no_reply"] is True and quiet.get("stale") is True
-    assert quiet["ts"] == 2 and quiet["collapsed_n"] == 2   # first, not latest
+    assert quiet["ts"] == 2 and quiet["collapsed_n"] == 1   # first after GO; one dropped
 
 @case("backlog-two-items-collapse-separately")
 def _():
@@ -219,8 +219,23 @@ def _():
     assert len(out) == 2
     by = {m["item"]: m for m in out}
     assert by[T]["ts"] == 1 and by[T2]["ts"] == 1
-    assert by[T]["collapsed_n"] == 2 and by[T2]["collapsed_n"] == 2
+    assert by[T]["collapsed_n"] == 1 and by[T2]["collapsed_n"] == 1
     assert by[T]["no_reply"] and by[T2]["no_reply"]
+
+@case("backlog-reset-starts-new-group")
+def _():
+    msgs = [
+        M("DEV", "DONE", ts=1, mid="d1"),
+        M("QA", "ACK", ts=2, mid="a1"),
+        M("LEAD", "GO", ts=3, mid="g1"),
+        M("DEV", "DONE", ts=4, mid="d2"),
+        M("DEV", "DONE", ts=5, mid="d3"),
+    ]
+    out = N.collapse_backlog(msgs)
+    verbs = [m["verb"] for m in out]
+    assert verbs == ["DONE", "GO", "DONE"], verbs
+    assert out[0]["ts"] == 1 and out[0]["collapsed_n"] == 1
+    assert out[2]["ts"] == 4 and out[2]["collapsed_n"] == 1
 
 # --- 18.4 metrics ---
 @case("metrics-raw-done-lines-are-not-progress")
@@ -291,6 +306,62 @@ def _():
     assert not N.is_quiet("FLAG")
     assert r.handle(flag, 0)["disposition"] == "pass"
     assert r.handle(flag, 1)["disposition"] == "pass"
+
+# --- F8 body hash / ticket resolve / reset ---
+@case("relay-fyi-new-body-relays")
+def _():
+    r = N.Relay()
+    r.handle(M("DEV", "FYI", ts=0, note="old"), 0)
+    out = r.handle(M("DEV", "FYI", ts=1, note="new"), 1)
+    assert out["disposition"] == "relay"
+
+@case("relay-rec-new-action-relays")
+def _():
+    r = N.Relay()
+    r.handle(M("QA", "REC", action="HOLD", ts=0), 0)
+    out = r.handle(M("QA", "REC", action="GO", ts=1), 1)
+    assert out["disposition"] == "relay"
+
+@case("relay-done-after-go-relays")
+def _():
+    r = N.Relay()
+    r.handle(M("DEV", "DONE", ts=0), 0)
+    assert r.handle(M("LEAD", "GO", ts=1), 1)["disposition"] == "pass"
+    out = r.handle(M("DEV", "DONE", ts=2), 2)
+    assert out["disposition"] == "relay"
+
+@case("relay-flag-does-not-reset")
+def _():
+    r = N.Relay()
+    r.handle(M("DEV", "DONE", ts=0), 0)
+    r.handle(M("ICOM", "FLAG", to=["LEAD", "OWNER"], ts=1, obj="echo.loop"), 1)
+    out = r.handle(M("DEV", "DONE", ts=2), 2)
+    assert out["disposition"] == "suppress"
+
+@case("relay-last4-unresolved-no-sup")
+def _():
+    r = N.Relay()
+    short = "2c3d#2"
+    r.handle(M("DEV", "DONE", item=short, ts=0), 0)
+    out = r.handle(M("DEV", "DONE", item=short, ts=1), 1)
+    assert out["disposition"] == "relay"
+    assert r.log[-1].get("why") == "unresolved-ticket"
+
+@case("relay-unwritable-state-open")
+def _():
+    p = os.path.join(WORK, "no-write-dir", "echo.json")
+    real = os.makedirs
+    def boom(*a, **k):
+        raise PermissionError("read-only")
+    os.makedirs = boom
+    try:
+        r = N.Relay(state_path=p)
+    finally:
+        os.makedirs = real
+    assert r.persist is False
+    assert any(x.get("why") == "state-unwritable" for x in r.log)
+    out = r.handle(M("DEV", "DONE", ts=0), 0)
+    assert out["disposition"] == "relay"
 
 if __name__ == "__main__":
     fails = [r for r in results if not r[1]]

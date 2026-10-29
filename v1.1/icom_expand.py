@@ -58,7 +58,10 @@ class Codebook:
         if path.endswith(".json"):
             d = json.loads(text)
         else:
-            import yaml
+            try:
+                import yaml
+            except ImportError:
+                raise CodebookError("YAML codebook requires PyYAML")
             d = yaml.safe_load(text)
         if not isinstance(d, dict) or "version" not in d:
             raise CodebookError("codebook has no version")

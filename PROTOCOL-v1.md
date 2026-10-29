@@ -125,15 +125,17 @@ Designed against a class of failure: agents answered each other's terminal and i
 
 ### 18.2 Relay
 - Suppress a repeat quiet verb from the same sender on the same ticket within a window (reference default: 6h).
-- Key: `(from, ticket, verb)`. Not message ID. Message-ID dedup alone does not satisfy this rule.
+- Key: `(from, ticket, verb, bodyhash)`. `ticket` is the full resolved id (never an unscoped last4 or `^tag`; if those cannot be bound to a full id, do not suppress). `bodyhash` is a hash of the normalized body (`verb` + REC action if any + object + sorted `key=val` tokens). An FYI with new tokens, a REC with a different action, or any quiet line whose body changed is a new key and is not suppressed.
+- Not message ID. Message-ID dedup alone does not satisfy this rule.
 - Disposition of a suppressed line: log it as suppressed (never a silent drop). Deliver it to LEAD or OWNER only when they are already among the addressed recipients. Do not add LEAD or OWNER. Do not fan it out to other agents.
-- Action verbs and FLAG are never suppressed by this rule. The first quiet verb in a window is relayed normally.
+- Action verbs and FLAG are never suppressed by this rule. The first quiet body in a window is relayed normally.
 - A suppressed repeat does not extend the window. The clock stays on the first relayed line for that key.
-- If echo checking errors, deliver the line and log the error (fail-open). Corrupt state files are set aside (parked as `.old`), never deleted.
+- A non-quiet reset verb on the ticket clears the window: GO, ASK, DECIDE, BLOCKED, NAK, and HOLD when HOLD is in the codebook. FLAG does not reset. A DONE after a new GO is therefore not suppressed.
+- If echo checking errors, deliver the line and log the error (fail-open). Corrupt state files are set aside (parked as `.old`), never deleted. An unwritable state directory is fail-open: deliver, log, and run without persistence.
 - Do not emit a NAK solely because a line was suppressed (NAK is new traffic).
 
 ### 18.3 Backlog / replay
-- After a pause, cap, or reconnect: before acting, collapse repeated quiet verbs. Keep the first (original) quiet line per `(from, ticket, verb)`; drop later echoes and note the collapsed count on the kept line. Keep action lines.
+- After a pause, cap, or reconnect: before acting, collapse repeated quiet verbs per ticket. Keep the first quiet line; drop later quiets and note the dropped count on the kept line. A reset verb (same set as 18.2) starts a new group. Keep action lines.
 - Never reply to a quiet verb that is stale (already acted on, older than the newest line on that ticket, or dated before the pause).
 
 ### 18.4 Metrics
@@ -149,7 +151,7 @@ Designed against a class of failure: agents answered each other's terminal and i
 @QC>ICOM>INT P2 CL13 #T-1001 DONE contacts.import
 @INT>ICOM>QC P2 CL13 #T-1001 DONE contacts.import
 ```
-18.1: QC does not ACK the DONE; INT does not ACK an ACK; neither sends DONE in reply to a quiet verb. If those lines are sent anyway, 18.2: INT's second DONE on #T-1001 within 6h is not fanned out (relay log: suppressed, why=echo, key=INT:#T-1001:DONE). LEAD/OWNER receive it only if they were already addressed; they are not added. Peers do not.
+18.1: QC does not ACK the DONE; INT does not ACK an ACK; neither sends DONE in reply to a quiet verb. If those lines are sent anyway, 18.2: INT's second DONE on #T-1001 with the same body within 6h is not fanned out (relay log: suppressed, why=echo, key=INT:#T-1001:DONE:<bodyhash>). LEAD/OWNER receive it only if they were already addressed; they are not added. Peers do not.
 
 ### Example — conformant follow-up
 ```
