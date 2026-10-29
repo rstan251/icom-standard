@@ -1,6 +1,6 @@
 # ICOM — proposed inter-agent communication format
 
-Version: **v1** · 2026-10-18
+Version: **v1.2** · 2026-10-29
 Maintained by Robert Stanley / Iron Noodle Technologies.
 
 ICOM (Inter-agent Comms) is a compact, unambiguous message format for multi-agent systems. All inter-agent traffic routes through an ICOM router agent, uses a fixed header plus `key=val` tokens, and cites a task/ticket id. It cuts tokens ~40% vs English prose while staying machine-parseable.
@@ -12,7 +12,7 @@ ICOM (Inter-agent Comms) is a compact, unambiguous message format for multi-agen
 ## What this is / is not
 
 **This is**
-- A public proposal for a one-line, codebook-backed agent-to-agent handoff format (CHP/1 and the v1.1 expander).
+- A public proposal for a one-line, codebook-backed agent-to-agent handoff format (CHP/1, the v1.1 expander, and v1.2 no-echo).
 - A draft you can implement, measure, critique, and change.
 
 **This is not**
@@ -49,12 +49,12 @@ Prepend `adopt/HDR.txt` to the top of the agent's profile/system prompt. Then us
 (Note: the paste-in header previously lived at `patch12/HDR.txt`; it now lives at `adopt/HDR.txt`.)
 
 ## Files
-- `PROTOCOL-v1.md` — full spec (rules 1–14, 17; rule 14 = ICX object codes, rule 17 = REC-LABEL)
+- `PROTOCOL-v1.md` — full spec (rules 1–14, 17–18; rule 14 = ICX object codes, rule 17 = REC-LABEL, rule 18 = NO-ECHO)
 - `codebook.yaml` — verbs, priorities, agents, lanes, objects, fields
 - `examples.txt` — same handoff in English, house style, ICOM, JSON, etc.
 - `AGENT-INSTRUCTIONS.md` — prompt template for an ICOM router agent
 - `adopt/HDR.txt` — paste-in header for agent profiles
 - `CONTRIBUTING.md`, `LICENSE` (MIT)
-- `v1.1/` — ICOM v1.1 spec and reference expander
+- `v1.1/` — expander (engine 1.2.0) plus rule-18 no-echo reference and tests
 
 Client/lane codes in this repo are generic placeholders.

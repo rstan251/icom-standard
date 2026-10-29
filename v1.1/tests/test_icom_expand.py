@@ -106,7 +106,7 @@ def _():
 
 # --- autoNAK ---
 @case("nak-bad-verb")
-def _(): nak("@LEAD>ICOM>DEV P2 INT0 %s DECIDE ops.deploy" % T, "bad-verb")
+def _(): nak("@LEAD>ICOM>DEV P2 INT0 %s BOGUS ops.deploy" % T, "bad-verb")
 @case("nak-prose")
 def _(): nak("@LEAD>ICOM>DEV P2 INT0 %s GO ops.deploy please rerun the job" % T, "prose")
 @case("nak-full-email")
@@ -151,6 +151,10 @@ def _():
     except E.CodebookError: pass
 @case("codebook-yaml-dict-form")
 def _():
+    try:
+        import yaml  # noqa: F401
+    except ImportError:
+        return  # skip: JSON codebooks are enough; YAML needs PyYAML
     p = os.path.join(WORK, "cb-dict.yaml")
     open(p, "w").write("version: 0.0.1-t\nverbs: {GO: go, DONE: done}\nclients: {AAA: a}\nagents: {LEAD: l, DEV: d}\n")
     cb = E.Codebook(p); assert cb.version == "0.0.1-t" and "AAA" in cb.lanes and "INT0" in cb.lanes and not cb.shortcuts
