@@ -313,7 +313,7 @@ def _():
 
 @case("loop-non-iro-not-counted")
 def _():
-    msgs = [M("DEV", "DONE", item="#OPS-1182", ts=i, mid="o%d" % i) for i in range(60)]
+    msgs = [M("DEV", "DONE", item="#OPS-12", ts=i, mid="o%d" % i) for i in range(60)]
     w = N.LoopWatch()
     assert w.consider(msgs, now=60) == []
     assert N.loop_items(msgs, now=60) == []

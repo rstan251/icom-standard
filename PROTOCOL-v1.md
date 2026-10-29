@@ -141,7 +141,7 @@ Designed against a class of failure: agents answered each other's terminal and i
 ### 18.4 Metrics
 - Progress and DONE counts use distinct `(ticket, from, state)` completions, not raw DONE lines. `state` is the work-item status in the system of record (or the object plus outcome if no SoR status is cited).
 - The ticket's status in the system of record wins over any message count.
-- Loop flag: more than 50 quiet verbs on one resolved `#iro-xxxxxxxx` ticket within 24h → one `@ICOM>LEAD,OWNER … FLAG echo.loop why=echo n=<count>` per ticket per 24h window, for human triage. Count uses the same resolve as 18.2: last4 binds to exactly one seen full id; unresolved, ambiguous, and non-iro tickets (`#OPS-12`, `#OPS-1182`) are not loop-counted. FLAG is not quiet and must never be suppressed by this rule. Do not treat the count as progress. Relays MAY lower 50.
+- Loop flag: more than 50 quiet verbs on one resolved `#iro-xxxxxxxx` ticket within 24h → one `@ICOM>LEAD,OWNER … FLAG echo.loop why=echo n=<count>` per ticket per 24h window, for human triage. Count uses the same resolve as 18.2: last4 binds to exactly one seen full id; unresolved, ambiguous, and non-iro tickets (`#OPS-12`) are not loop-counted. FLAG is not quiet and must never be suppressed by this rule. Do not treat the count as progress. Relays MAY lower 50.
 
 ### Example — non-conformant loop (must not happen)
 ```
