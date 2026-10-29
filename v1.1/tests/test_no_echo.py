@@ -311,6 +311,23 @@ def _():
     assert r.handle(flag, 0)["disposition"] == "pass"
     assert r.handle(flag, 1)["disposition"] == "pass"
 
+@case("loop-non-iro-not-counted")
+def _():
+    msgs = [M("DEV", "DONE", item="#OPS-1182", ts=i, mid="o%d" % i) for i in range(60)]
+    w = N.LoopWatch()
+    assert w.consider(msgs, now=60) == []
+    assert N.loop_items(msgs, now=60) == []
+
+@case("loop-last4-binds-one-flag")
+def _():
+    msgs = [M("DEV", "DONE", item=IRO_A, ts=i, mid="a%d" % i) for i in range(30)]
+    msgs += [M("DEV", "DONE", item=SHORT, ts=30 + i, mid="s%d" % i) for i in range(30)]
+    w = N.LoopWatch()
+    out = w.consider(msgs, now=60)
+    assert len(out) == 1, out
+    assert IRO_A in out[0] and "n=60" in out[0]
+    assert N.loop_items(msgs, now=60) == [IRO_A]
+
 # --- F8 body hash / ticket resolve / reset ---
 @case("relay-fyi-new-body-relays")
 def _():

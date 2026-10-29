@@ -5,6 +5,7 @@ Quiet verbs are never answered with quiet verbs. Relays suppress a repeat
 quiet verb from the same sender on the same full ticket with the same
 normalized body inside a window. Backlogs collapse per ticket and reset
 on a non-quiet verb. DONE counts are unique (item, sender, state).
+Loop flags count resolved #iro-xxxxxxxx only; non-iro is not counted.
 
 Copyright (c) 2026 Robert Stanley / Iron Noodle Technologies. MIT License.
 
@@ -354,24 +355,49 @@ def progress_count(msgs):
     return len(unique_completions(msgs))
 
 
-def loop_items(msgs, now, n=LOOP_N, window_s=LOOP_S):
-    """Items with more than n quiet verbs inside the trailing window."""
+def _seen_full_ids(msgs):
+    seen = []
+    for m in msgs:
+        f = full_iro(m.get("item"))
+        if f and f not in seen:
+            seen.append(f)
+    return seen
+
+
+def loop_items(msgs, now, n=LOOP_N, window_s=LOOP_S, bound=None):
+    """Resolved #iro-xxxxxxxx ids with more than n quiet verbs in the window.
+
+    Same resolve as suppress: last4 binds when exactly one seen full id
+    shares that last4. Unresolved, ambiguous, and non-iro tickets are
+    not counted.
+    """
+    seen = _seen_full_ids(msgs)
     counts = defaultdict(int)
     for m in msgs:
         if not is_quiet(m.get("verb")):
             continue
         ts = m.get("ts", 0)
-        if now - ts <= window_s:
-            counts[m["item"]] += 1
+        if now - ts > window_s:
+            continue
+        ticket = resolve_ticket(m.get("item"), bound, seen)
+        if ticket is None:
+            continue
+        counts[ticket] += 1
     return sorted(item for item, c in counts.items() if c > n)
 
 
-def quiet_count(msgs, item, now, window_s=LOOP_S):
+def quiet_count(msgs, item, now, window_s=LOOP_S, bound=None):
+    seen = _seen_full_ids(msgs)
+    target = full_iro(item) or resolve_ticket(item, bound, seen)
+    if target is None:
+        return 0
     n = 0
     for m in msgs:
-        if m.get("item") != item or not is_quiet(m.get("verb")):
+        if not is_quiet(m.get("verb")):
             continue
-        if now - m.get("ts", 0) <= window_s:
+        if now - m.get("ts", 0) > window_s:
+            continue
+        if resolve_ticket(m.get("item"), bound, seen) == target:
             n += 1
     return n
 
@@ -383,7 +409,7 @@ def loop_flag_line(item, count, version="1.6.0"):
 
 
 class LoopWatch:
-    """Emit at most one FLAG per ticket per loop window."""
+    """Emit at most one FLAG per resolved #iro-xxxxxxxx per loop window."""
 
     def __init__(self, n=LOOP_N, window_s=LOOP_S):
         self.n, self.window_s = n, window_s
