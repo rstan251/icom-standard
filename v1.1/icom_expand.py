@@ -15,7 +15,7 @@ Exit: 0 all lines OK, 1 one or more NAKs, 2 codebook load/pin error.
 """
 import argparse, hashlib, json, os, re, sys
 
-ENGINE_VERSION = "1.1.0"
+ENGINE_VERSION = "1.2.0"
 DEFAULT_PRI = "P2"
 DEFAULT_LANE = "INT0"
 PRIS = ("P0", "P1", "P2", "P3")

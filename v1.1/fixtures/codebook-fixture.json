@@ -4,7 +4,8 @@
   "verbs": ["ACK", "ASK", "BLOCKED", "DONE", "FYI", "GO", "HOLD", "NAK", "REC"],
   "lanes": ["INT0", "AAA", "BBB"],
   "agents": ["ICOM", "LEAD", "DEV", "QA", "OPS"],
-  "icx": {"codes": [{"code": "ops.deploy"}, {"code": "ops.qc"}, {"code": "org.proto"}]},
+  "icx": {"codes": [{"code": "ops.deploy"}, {"code": "ops.qc"}, {"code": "org.proto"}, {"code": "echo.loop"}]},
+  "echo": {"window_s": 21600, "loop_n": 12, "loop_s": 86400},
   "paths": {"~w": "ROOT"},
   "shortcuts": {
     "RERUN-GO": {"expand": "GO ops.deploy act=rerun"},

@@ -1,6 +1,6 @@
 # ICOM codebook — owned by the ICOM router agent. Append-only; never reuse a retired code.
-version: 1.5.0
-updated: 2026-10-19
+version: 1.6.0
+updated: 2026-10-29
 rules: {max_code_len: 6, case: UPPER for agents/clients/verbs, lower.dot for objects}
 verbs:       # header slot 4; maps to house codes D/R/F/O/Q/A
   GO: start/approved to proceed
@@ -91,6 +91,8 @@ objects:     # ICX concept codes (https://github.com/rstan251/icx); legacy lower
   bot.health: client bot health check
   esc.human: escalate to human
   agent.inbox: per-agent a2a mailbox
+  # added 1.6.0
+  echo.loop: quiet-verb echo loop (rule 18)
 fields:      # key=value keys
   f: file path (reference, do not restate contents)
   fn: function/service name
@@ -108,5 +110,9 @@ fields:      # key=value keys
   qa: test result AGENT:pass/total
   impact: client impact (0 = none)
   scope: client/tenant scope (e.g. scope=CL14)  # added 1.4.0
+echo:        # added 1.6.0 — rule 18 NO-ECHO tunables (seconds)
+  window_s: 21600
+  loop_n: 12
+  loop_s: 86400
 paths:       # optional aliases, expand by prefix
   "%w": ~/work
