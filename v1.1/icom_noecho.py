@@ -24,8 +24,9 @@ WINDOW_S = 21600          # 6h reference default
 LOOP_N = 50
 LOOP_S = 86400            # 24h
 LEAD_LANES = frozenset({"LEAD", "OWNER"})
-LAST4 = re.compile(r"^[0-9a-f]{4}#[0-9]{1,6}$")
+LAST4 = re.compile(r"^([0-9a-f]{4})#[0-9]{1,6}$")
 TAG = re.compile(r"^\^[a-z0-9]{4,8}$")
+IRO_FULL = re.compile(r"^#?iro-([0-9a-f]{8})$")
 SKIP_BODY = frozenset({
     "sender", "from", "item", "ticket", "verb", "to", "ts", "id",
     "object", "action", "state", "no_reply", "collapsed_n", "stale", "kv",
@@ -69,17 +70,53 @@ def sender_ok(prev_verb, new_verb, new_state_change=False):
     return False
 
 
-def resolve_ticket(item, bound=None):
-    """Full ticket id, or None for an unscoped last4/tag that cannot be resolved.
+def is_full_iro(item):
+    return bool(item) and IRO_FULL.match(str(item))
 
-    Suppress keys use only a resolved full id. last4 (`abcd#1`) and `^tag`
-    never key a suppress unless the caller supplies a binding to a full id.
+
+def full_iro(item):
+    """Canonical #iro-xxxxxxxx, or None."""
+    m = IRO_FULL.match(str(item or ""))
+    return "#iro-" + m.group(1) if m else None
+
+
+def last4_hex(item):
+    m = IRO_FULL.match(str(item or ""))
+    return m.group(1)[-4:] if m else None
+
+
+def resolve_ticket(item, bound=None, seen=None):
+    """Full #iro-xxxxxxxx, or None.
+
+    Only a ticket that resolves to a full iro-xxxxxxxx id may be grouped
+    or suppressed. last4 (`abcd#1`) binds when exactly one seen/bound
+    full id shares that last4. Unresolved, ambiguous, tag-only, or a
+    non-iro ticket (#T-1001, #OPS-12) returns None: never collapse,
+    never suppress.
     """
     if not item:
         return None
-    if LAST4.match(str(item)) or TAG.match(str(item)):
-        return (bound or {}).get(item)
-    return item
+    s = str(item)
+    full = full_iro(s)
+    if full:
+        return full
+    m = LAST4.match(s)
+    if m:
+        if bound:
+            if s in bound and full_iro(bound[s]):
+                return full_iro(bound[s])
+            if m.group(1) in bound and full_iro(bound[m.group(1)]):
+                return full_iro(bound[m.group(1)])
+        suffix = m.group(1)
+        hits = []
+        for t in seen or []:
+            f = full_iro(t)
+            if f and last4_hex(f) == suffix and f not in hits:
+                hits.append(f)
+        if len(hits) == 1:
+            return hits[0]
+        return None
+    return None
 
 
 def normalize_body(msg):
@@ -133,25 +170,28 @@ class Relay:
         self.state_path = state_path
         self.codebook_verbs = codebook_verbs
         self.last = {}          # key -> timestamp of first relay in window
+        self.seen = set()       # full #iro-xxxxxxxx ids observed
         self.log = []           # disposition records (never silent)
         self.persist = True
         if state_path:
             self._startup_state(state_path)
 
+    def _fail_open_state(self, why, err):
+        self.persist = False
+        self.last = {}
+        self.log.append({
+            "disposition": "fail-open", "why": why, "err": str(err)[:80],
+        })
+
     def _startup_state(self, path):
-        """Load or create state. PermissionError -> fail open, no persist."""
+        """Load or create state. Any OSError -> fail open, no persist."""
         try:
             d = os.path.dirname(os.path.abspath(path))
             if d and not os.path.isdir(d):
                 os.makedirs(d, mode=0o700)
             self.load_state(path)
-        except PermissionError as e:
-            self.persist = False
-            self.last = {}
-            self.log.append({
-                "disposition": "fail-open", "why": "state-unwritable",
-                "err": str(e)[:80],
-            })
+        except OSError as e:
+            self._fail_open_state("state-unwritable", e)
 
     def load_state(self, path):
         """Load {key: ts}. Corrupt files are parked, never deleted."""
@@ -164,13 +204,8 @@ class Relay:
                 raise ValueError("state is not an object")
             self.last = {tuple(k.split("|")) if isinstance(k, str) else tuple(k): int(v)
                          for k, v in raw.items()}
-        except PermissionError as e:
-            self.persist = False
-            self.last = {}
-            self.log.append({
-                "disposition": "fail-open", "why": "state-unwritable",
-                "err": str(e)[:80],
-            })
+        except OSError as e:
+            self._fail_open_state("state-unwritable", e)
         except Exception as e:
             parked = _park(path)
             self.last = {}
@@ -211,7 +246,9 @@ class Relay:
             "ts": now, "sender": msg["sender"], "item": msg["item"],
             "verb": verb, "id": msg.get("id"),
         }
-        ticket = resolve_ticket(msg.get("item"), bound)
+        ticket = resolve_ticket(msg.get("item"), bound, self.seen)
+        if ticket:
+            self.seen.add(ticket)
         if is_reset(verb, self.codebook_verbs):
             if ticket:
                 self._reset_ticket(ticket)
@@ -250,21 +287,30 @@ class Relay:
         return {"disposition": "relay", "deliver_to": to, "record": rec}
 
 
-def collapse_backlog(msgs, resume_ts=None, codebook_verbs=None):
-    """Per ticket: keep the first quiet line; drop later quiets until a reset.
+def collapse_backlog(msgs, resume_ts=None, codebook_verbs=None, bound=None):
+    """Per resolved #iro-xxxxxxxx: keep the first quiet; drop later quiets.
 
-    A non-quiet reset verb (GO, ASK, DECIDE, BLOCKED, NAK, HOLD-if-coded)
-    starts a new group. collapsed_n is the number of quiet lines dropped.
-    The kept quiet line is never answered (no_reply).
+    last4 binds when exactly one full iro id in the batch shares that
+    last4. Unresolved, ambiguous, or non-iro tickets are never collapsed.
+    A reset verb starts a new group. collapsed_n is the dropped count.
     """
-    groups = defaultdict(list)   # ticket -> [(index, msg)]
+    seen = []
+    for m in msgs:
+        f = full_iro(m.get("item"))
+        if f and f not in seen:
+            seen.append(f)
+    groups = defaultdict(list)   # resolved ticket or None -> [(index, msg)]
     order = []
+    passthrough = []
     for i, m in enumerate(msgs):
-        item = m["item"]
+        item = resolve_ticket(m.get("item"), bound, seen)
+        if item is None:
+            passthrough.append((i, m))
+            continue
         if item not in order:
             order.append(item)
         groups[item].append((i, m))
-    kept = []
+    kept = list(passthrough)
     for item in order:
         first = None            # (index, copy) of first quiet in current group
         dropped = 0

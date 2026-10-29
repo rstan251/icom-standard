@@ -7,8 +7,12 @@ sys.path.insert(0, ROOT)
 import icom_noecho as N
 WORK = os.path.join(ROOT, ".work"); os.makedirs(WORK, mode=0o700, exist_ok=True)
 
-T = "#T-1001"
-T2 = "#T-1002"
+T = "#iro-0a1b2c3d"
+T2 = "#iro-aabb0002"
+IRO_A = "#iro-1111b6dc"
+IRO_B = "#iro-2222b6dc"
+SHORT = "b6dc#3"
+NONIRO = "#OPS-12"
 results = []
 
 def case(name):
@@ -362,6 +366,126 @@ def _():
     assert any(x.get("why") == "state-unwritable" for x in r.log)
     out = r.handle(M("DEV", "DONE", ts=0), 0)
     assert out["disposition"] == "relay"
+
+@case("relay-parent-is-a-file")
+def _():
+    parent = os.path.join(WORK, "state-parent-file")
+    open(parent, "w").write("not-a-dir")
+    r = N.Relay(state_path=os.path.join(parent, "echo.json"))
+    assert r.persist is False
+    assert any(x.get("why") == "state-unwritable" for x in r.log)
+    out = r.handle(M("DEV", "DONE", ts=0), 0)
+    assert out["disposition"] == "relay"
+
+@case("relay-readonly-dir-fail-open")
+def _():
+    d = os.path.join(WORK, "ro-parent")
+    os.makedirs(d, exist_ok=True)
+    os.chmod(d, 0o555)
+    try:
+        r = N.Relay(state_path=os.path.join(d, "child", "echo.json"))
+        assert r.persist is False
+        assert any(x.get("why") == "state-unwritable" for x in r.log)
+        out = r.handle(M("DEV", "DONE", ts=0), 0)
+        assert out["disposition"] == "relay"
+    finally:
+        os.chmod(d, 0o700)
+
+@case("backlog-last4-unresolved-keep")
+def _():
+    msgs = [M("DEV", "DONE", item=SHORT, ts=1), M("DEV", "DONE", item=SHORT, ts=2)]
+    out = N.collapse_backlog(msgs)
+    assert len(out) == 2
+    assert all("collapsed_n" not in m for m in out)
+
+@case("backlog-last4-binds-to-one")
+def _():
+    msgs = [
+        M("DEV", "DONE", item=IRO_A, ts=1),
+        M("DEV", "DONE", item=SHORT, ts=2),
+    ]
+    out = N.collapse_backlog(msgs)
+    quiets = [m for m in out if N.is_quiet(m["verb"])]
+    assert len(quiets) == 1
+    assert quiets[0]["item"] == IRO_A and quiets[0]["collapsed_n"] == 1
+
+@case("backlog-last4-ambiguous-keep")
+def _():
+    msgs = [
+        M("DEV", "DONE", item=IRO_A, ts=1),
+        M("QA", "DONE", item=IRO_B, ts=2),
+        M("DEV", "DONE", item=SHORT, ts=3),
+    ]
+    out = N.collapse_backlog(msgs)
+    assert len(out) == 3   # last4 does not join either group
+
+@case("backlog-non-iro-never-collapse")
+def _():
+    msgs = [M("DEV", "DONE", item=NONIRO, ts=1), M("DEV", "DONE", item=NONIRO, ts=2)]
+    out = N.collapse_backlog(msgs)
+    assert len(out) == 2
+    assert all("collapsed_n" not in m for m in out)
+
+@case("relay-last4-binds-then-suppress")
+def _():
+    r = N.Relay()
+    assert r.handle(M("DEV", "DONE", item=IRO_A, ts=0), 0)["disposition"] == "relay"
+    out = r.handle(M("DEV", "DONE", item=SHORT, ts=1), 1)
+    assert out["disposition"] == "suppress"
+
+@case("relay-last4-ambiguous-relays")
+def _():
+    r = N.Relay()
+    r.handle(M("DEV", "DONE", item=IRO_A, ts=0), 0)
+    r.handle(M("QA", "DONE", item=IRO_B, ts=1), 1)
+    out = r.handle(M("DEV", "DONE", item=SHORT, ts=2), 2)
+    assert out["disposition"] == "relay"
+    assert r.log[-1].get("why") == "unresolved-ticket"
+
+@case("relay-non-iro-never-suppress")
+def _():
+    r = N.Relay()
+    r.handle(M("DEV", "DONE", item=NONIRO, ts=0), 0)
+    out = r.handle(M("DEV", "DONE", item=NONIRO, ts=1), 1)
+    assert out["disposition"] == "relay"
+    assert r.log[-1].get("why") == "unresolved-ticket"
+
+def _from_line(line):
+    toks = line.split()
+    frm = toks[0][1:].split(">")[0]
+    tos = toks[0].split(">")[-1].split(",")
+    ticket = [t for t in toks if t.startswith("#iro-") or t.startswith("#")][0]
+    ti = toks.index(ticket)
+    verb = toks[ti + 1]
+    j = ti + 2
+    action = None
+    if verb == "REC" and j < len(toks) and "=" not in toks[j] and toks[j].isupper():
+        action = toks[j]; j += 1
+    obj = toks[j]
+    extra = {}
+    for t in toks[j + 1:]:
+        if "=" in t:
+            k, v = t.split("=", 1)
+            extra[k] = v
+    return M(frm, verb, item=ticket, to=tos, obj=obj, action=action, **extra)
+
+@case("decide-clears-window-via-parser")
+def _():
+    sys.path.insert(0, ROOT)
+    import icom_expand as E
+    fx = os.path.join(ROOT, "fixtures", "codebook-fixture.json")
+    cb = E.Codebook(fx)
+    assert "DECIDE" in cb.verbs and "HOLD" in cb.verbs
+    th = E.Thread()
+    ok1, l1 = E.process("@DEV>LEAD %s DONE ops.qc qa=pass" % T, cb, th)
+    ok2, l2 = E.process("@LEAD>DEV %s DECIDE ops.qc" % T, cb, th)
+    ok3, l3 = E.process("@DEV>LEAD %s DONE ops.qc qa=pass" % T, cb, th)
+    assert ok1 and ok2 and ok3, (l1, l2, l3)
+    assert " DECIDE " in l2
+    r = N.Relay(codebook_verbs=cb.verbs)
+    assert r.handle(_from_line(l1), 0)["disposition"] == "relay"
+    assert r.handle(_from_line(l2), 1)["disposition"] == "pass"
+    assert r.handle(_from_line(l3), 2)["disposition"] == "relay"
 
 if __name__ == "__main__":
     fails = [r for r in results if not r[1]]

@@ -12,6 +12,7 @@ verbs:       # header slot 4; maps to house codes D/R/F/O/Q/A
   ASK: question needing answer (house Q)
   ACK: received/understood
   NAK: rejected/cannot parse
+  DECIDE: decision / state change (rule 18 reset); not quiet  # added 1.6.0
   FLAG: echo-loop alert (rule 18); not quiet, never suppressed
 priority: {P0: drop everything, P1: today, P2: this week, P3: whenever}
 agents:

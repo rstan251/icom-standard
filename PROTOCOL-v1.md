@@ -115,7 +115,7 @@ Stall-fallback direct messages are allowed for internal traffic only. Client sen
 Designed against a class of failure: agents answered each other's terminal and informational messages (DONE, and also ACK/FYI/REC-style informational messages) with more terminal messages on the same work item. A relay that only deduplicated identical message IDs forwarded every reply because each reply had a fresh ID. Over several days, thousands of DONE messages accumulated on one item whose real work was never completed. The loop restarted after daily usage-cap pauses: agents that stopped reading re-read their unread backlog when the cap reset, and every backlog DONE triggered new replies. Inflated DONE counts were mistaken for progress.
 
 **Quiet verbs** (terminal or informational; no reply expected): DONE, FYI, ACK, REC, and codebook equivalents.
-**Action verbs** (may follow a quiet verb): GO, ASK, BLOCKED, NAK, HOLD, and any later verb that is a real state change (not an acknowledgement). Silence is a valid response to a quiet verb.
+**Action verbs** (may follow a quiet verb): GO, ASK, DECIDE, BLOCKED, NAK, HOLD, and any later verb that is a real state change (not an acknowledgement). Silence is a valid response to a quiet verb.
 
 ### 18.1 Sender
 - A quiet verb is never answered with another quiet verb on the same ticket.
@@ -125,17 +125,17 @@ Designed against a class of failure: agents answered each other's terminal and i
 
 ### 18.2 Relay
 - Suppress a repeat quiet verb from the same sender on the same ticket within a window (reference default: 6h).
-- Key: `(from, ticket, verb, bodyhash)`. `ticket` is the full resolved id (never an unscoped last4 or `^tag`; if those cannot be bound to a full id, do not suppress). `bodyhash` is a hash of the normalized body (`verb` + REC action if any + object + sorted `key=val` tokens). An FYI with new tokens, a REC with a different action, or any quiet line whose body changed is a new key and is not suppressed.
+- Key: `(from, ticket, verb, bodyhash)`. `ticket` must resolve to a full `iro-xxxxxxxx` id (`#iro-xxxxxxxx`). last4 (`abcd#1`) binds only when exactly one full id already seen (or in the same batch) shares that last4. If last4 is unresolved or ambiguous, or the ticket is a non-iro id (`#T-1001`, `#OPS-12`), do not suppress and do not collapse. `bodyhash` is a hash of the normalized body (`verb` + REC action if any + object + sorted `key=val` tokens). An FYI with new tokens, a REC with a different action, or any quiet line whose body changed is a new key and is not suppressed.
 - Not message ID. Message-ID dedup alone does not satisfy this rule.
 - Disposition of a suppressed line: log it as suppressed (never a silent drop). Deliver it to LEAD or OWNER only when they are already among the addressed recipients. Do not add LEAD or OWNER. Do not fan it out to other agents.
 - Action verbs and FLAG are never suppressed by this rule. The first quiet body in a window is relayed normally.
 - A suppressed repeat does not extend the window. The clock stays on the first relayed line for that key.
 - A non-quiet reset verb on the ticket clears the window: GO, ASK, DECIDE, BLOCKED, NAK, and HOLD when HOLD is in the codebook. FLAG does not reset. A DONE after a new GO is therefore not suppressed.
-- If echo checking errors, deliver the line and log the error (fail-open). Corrupt state files are set aside (parked as `.old`), never deleted. An unwritable state directory is fail-open: deliver, log, and run without persistence.
+- If echo checking errors, deliver the line and log the error (fail-open). Corrupt state files are set aside (parked as `.old`), never deleted. State-dir creation catches `OSError` (PermissionError, FileExistsError when the parent path is a file, read-only filesystem): deliver, log, and run without persistence. Never crash.
 - Do not emit a NAK solely because a line was suppressed (NAK is new traffic).
 
 ### 18.3 Backlog / replay
-- After a pause, cap, or reconnect: before acting, collapse repeated quiet verbs per ticket. Keep the first quiet line; drop later quiets and note the dropped count on the kept line. A reset verb (same set as 18.2) starts a new group. Keep action lines.
+- After a pause, cap, or reconnect: before acting, collapse repeated quiet verbs per resolved `#iro-xxxxxxxx` ticket only. Keep the first quiet line; drop later quiets and note the dropped count. last4 binds to exactly one seen full id; unresolved, ambiguous, or non-iro tickets are never collapsed. A reset verb (same set as 18.2) starts a new group. Keep action lines.
 - Never reply to a quiet verb that is stale (already acted on, older than the newest line on that ticket, or dated before the pause).
 
 ### 18.4 Metrics
@@ -145,18 +145,18 @@ Designed against a class of failure: agents answered each other's terminal and i
 
 ### Example — non-conformant loop (must not happen)
 ```
-@INT>ICOM>QC P2 CL13 #T-1001 DONE contacts.import qa=pass
-@QC>ICOM>INT P2 CL13 #T-1001 ACK contacts.import
-@INT>ICOM>QC P2 CL13 #T-1001 ACK contacts.import
-@QC>ICOM>INT P2 CL13 #T-1001 DONE contacts.import
-@INT>ICOM>QC P2 CL13 #T-1001 DONE contacts.import
+@INT>ICOM>QC P2 CL13 #iro-0a1b2c3d DONE contacts.import qa=pass
+@QC>ICOM>INT P2 CL13 #iro-0a1b2c3d ACK contacts.import
+@INT>ICOM>QC P2 CL13 #iro-0a1b2c3d ACK contacts.import
+@QC>ICOM>INT P2 CL13 #iro-0a1b2c3d DONE contacts.import
+@INT>ICOM>QC P2 CL13 #iro-0a1b2c3d DONE contacts.import qa=pass
 ```
-18.1: QC does not ACK the DONE; INT does not ACK an ACK; neither sends DONE in reply to a quiet verb. If those lines are sent anyway, 18.2: INT's second DONE on #T-1001 with the same body within 6h is not fanned out (relay log: suppressed, why=echo, key=INT:#T-1001:DONE:<bodyhash>). LEAD/OWNER receive it only if they were already addressed; they are not added. Peers do not.
+18.1: QC does not ACK the DONE; INT does not ACK an ACK; neither sends DONE in reply to a quiet verb. If those lines are sent anyway, 18.2: INT's second DONE on `#iro-0a1b2c3d` with the same body within 6h is not fanned out (relay log: suppressed, why=echo, key=INT:#iro-0a1b2c3d:DONE:<bodyhash>). LEAD/OWNER receive it only if they were already addressed; they are not added. Peers do not.
 
 ### Example — conformant follow-up
 ```
-@INT>ICOM>QC P2 CL13 #T-1001 DONE contacts.import qa=pass
-@QC>ICOM>INT P2 CL13 #T-1001 ASK contacts.import ask=sample|none
+@INT>ICOM>QC P2 CL13 #iro-0a1b2c3d DONE contacts.import qa=pass
+@QC>ICOM>INT P2 CL13 #iro-0a1b2c3d ASK contacts.import ask=sample|none
 ```
 Quiet then action. No second DONE unless the SoR state changes.
 

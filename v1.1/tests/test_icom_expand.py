@@ -106,7 +106,7 @@ def _():
 
 # --- autoNAK ---
 @case("nak-bad-verb")
-def _(): nak("@LEAD>ICOM>DEV P2 INT0 %s DECIDE ops.deploy" % T, "bad-verb")
+def _(): nak("@LEAD>ICOM>DEV P2 INT0 %s BOGUS ops.deploy" % T, "bad-verb")
 @case("nak-prose")
 def _(): nak("@LEAD>ICOM>DEV P2 INT0 %s GO ops.deploy please rerun the job" % T, "prose")
 @case("nak-full-email")

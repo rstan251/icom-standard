@@ -1,7 +1,7 @@
 {
   "_note": "TEST FIXTURE ONLY. Not a canonical codebook. The single source is the relay codebook edited by Internal Comms.",
   "version": "9.9.9-fixture",
-  "verbs": ["ACK", "ASK", "BLOCKED", "DONE", "FYI", "FLAG", "GO", "HOLD", "NAK", "REC"],
+  "verbs": ["ACK", "ASK", "BLOCKED", "DECIDE", "DONE", "FYI", "FLAG", "GO", "HOLD", "NAK", "REC"],
   "lanes": ["INT0", "AAA", "BBB"],
   "agents": ["ICOM", "LEAD", "DEV", "QA", "OPS"],
   "icx": {"codes": [{"code": "ops.deploy"}, {"code": "ops.qc"}, {"code": "org.proto"}, {"code": "echo.loop"}]},
