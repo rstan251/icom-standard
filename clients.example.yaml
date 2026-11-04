@@ -1,0 +1,18 @@
+# Example private customer registry. Copy to clients.yaml (do not commit).
+# Never commit real customer names, shorthand, numeric ids, or EIN last-four.
+#
+# Numeric id is canonical and lives in this private registry only.
+# Agents write the short code in the CO.CLIENT slot (e.g. CM.ABC).
+# INT0 is internal / no client and is not a customer.
+#
+# All values below are fake placeholders (ABC, 0000). Real assignments are TBD.
+
+clients:
+  - id: "0000"
+    short: ABC
+    company: CM
+    name: Example Client
+  - id: "0001"
+    short: XYZ
+    company: CM
+    name: Example Client B

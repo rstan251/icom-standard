@@ -50,3 +50,10 @@ next: QC:spot10
 
 ## b64_v1
 QElOVD5MRUFEIFAyIENMMTMgRE9ORSBjb250YWN0cy5pbXBvcnQgZml4ZWQgZm49Y2wtbG9va3VwIHY9MjYzYWEyMTAgcmI9ZWE4ZWQwZTYgbj00MTIgZXJyPTAgZj1+L3dvcmsvbG9ncy9jb250YWN0cy1pbXBvcnQubG9nIG54PVFDOnNwb3QxMA==
+
+## v1.3
+# CO.CLIENT slot (ICX 1.2.0 / ICOM Rule 14a). Placeholders only.
+@INT>ICOM>LEAD P2 CM.ABC #T-n DONE pr.voice.intake~cfg fn=cl-lookup v=263aa210 n=412 err=0 nx=QC:spot10
+@INT>ICOM>LEAD P2 IN.INT0 #T-n FYI org.proto
+@INT>ICOM>EXT P2 CM.ABC #T-n ASK pr.voice.intake~cfg co=cogent-marketing cl=abc topic=voice-intake-config icx=1.2.0
+

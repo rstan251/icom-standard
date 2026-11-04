@@ -167,6 +167,112 @@ def _():
     with contextlib.redirect_stderr(io.StringIO()):
         assert E.main(["--codebook", FX, "--expect-sha12", "000000000000", "x"]) == 2
 
+# --- Rule 14a: CO.CLIENT slot (ICX 1.2.0) ---
+CLFX = os.path.join(ROOT, "fixtures", "clients-fixture.json")
+CBC = E.Codebook(FX, clients_path=CLFX)
+OUT_TOK = "co=cogent-marketing cl=abc topic=voice-intake-config icx=1.2.0"
+
+def okc(line, th=None, outbound=False):
+    r, out = E.process(line, CBC, th or E.Thread(), outbound=outbound)
+    assert r, out
+    return out
+def nakc(line, code, th=None, outbound=False):
+    r, out = E.process(line, CBC, th or E.Thread(), outbound=outbound)
+    assert not r, "expected NAK %s got %s" % (code, out)
+    assert (" why=%s" % code) in out, out
+    return out
+
+@case("co-client-shorthand-ok")
+def _():
+    l = "@LEAD>ICOM>OPS P1 CM.ABC %s ASK pr.voice.intake~cfg" % T
+    assert okc(l) == l
+@case("co-client-in-int0")
+def _():
+    l = "@LEAD>ICOM>OPS P1 IN.INT0 %s GO org.proto" % T
+    assert ok(l) == l
+@case("co-client-full-company-ok")
+def _():
+    l = "@LEAD>ICOM>OPS P1 C-TBD-XXXX.ABC %s ASK pr.voice.intake~cfg" % T
+    assert okc(l) == l
+@case("co-client-full-in-int0")
+def _():
+    l = "@LEAD>ICOM>OPS P1 I-MD-XXXX.INT0 %s GO org.proto" % T
+    assert ok(l) == l
+@case("legacy-lane-wst-still-valid")
+def _():
+    l = "@LEAD>ICOM>OPS P2 WST %s FYI ops.qc" % T
+    assert ok(l) == l
+@case("legacy-lane-lap-still-valid")
+def _():
+    l = "@LEAD>ICOM>OPS P2 LAP %s FYI ops.qc" % T
+    assert ok(l) == l
+@case("legacy-lane-int0-still-valid")
+def _():
+    l = "@LEAD>ICOM>DEV P2 INT0 %s GO ops.deploy" % T
+    assert ok(l) == l
+@case("legacy-lane-aaa-still-valid")
+def _():
+    l = "@LEAD>ICOM>DEV P2 AAA %s FYI ops.qc" % T
+    assert ok(l) == l
+@case("bare-registered-client-with-registry")
+def _():
+    l = "@LEAD>ICOM>OPS P1 ABC %s ASK pr.voice.intake~cfg" % T
+    assert okc(l) == l
+@case("nak-bare-c-not-unique")
+def _():
+    nak("@LEAD>DEV P2 C %s GO ops.deploy" % T, "icx.co.unk")
+@case("nak-c-dot-client")
+def _():
+    nak("@LEAD>DEV P2 C.ABC %s GO ops.deploy" % T, "icx.co.unk")
+@case("nak-unknown-company")
+def _():
+    nak("@LEAD>DEV P2 ZZ.ABC %s GO ops.deploy" % T, "icx.co.unk")
+@case("nak-unknown-client-with-registry")
+def _():
+    nakc("@LEAD>DEV P2 CM.QQQ %s GO ops.deploy" % T, "icx.cl.unk")
+@case("nak-bare-unknown-client-with-registry")
+def _():
+    nakc("@LEAD>DEV P2 QQQ %s GO ops.deploy" % T, "icx.cl.unk")
+@case("nak-client-under-wrong-company")
+def _():
+    nakc("@LEAD>DEV P2 IN.ABC %s GO ops.deploy" % T, "icx.cl.unk")
+@case("co-client-without-registry-ok")
+def _():
+    l = "@LEAD>ICOM>OPS P1 CM.ABC %s ASK pr.voice.intake~cfg" % T
+    assert ok(l) == l
+@case("p0-in-int0-misuse")
+def _():
+    nak("@LEAD>ICOM>DEV P0 IN.INT0 %s GO ops.deploy why=down" % T, "p0-misuse")
+@case("p0-cm-abc-ok")
+def _():
+    okc("@LEAD>ICOM>OPS P0 CM.ABC %s GO ops.deploy why=down" % T)
+@case("outbound-ext-missing-tokens")
+def _():
+    nak("@LEAD>ICOM>EXT P1 CM.ABC %s ASK pr.voice.intake~cfg" % T, "icx.ext.tok")
+@case("outbound-ext-complete-ok")
+def _():
+    l = "@LEAD>ICOM>EXT P1 CM.ABC %s ASK pr.voice.intake~cfg %s" % (T, OUT_TOK)
+    assert ok(l) == l
+@case("outbound-flag-missing-tokens")
+def _():
+    nakc("@LEAD>ICOM>OPS P1 CM.ABC %s ASK pr.voice.intake~cfg" % T, "icx.ext.tok", outbound=True)
+@case("outbound-flag-complete-ok")
+def _():
+    l = "@LEAD>ICOM>OPS P1 CM.ABC %s ASK pr.voice.intake~cfg %s" % (T, OUT_TOK)
+    assert okc(l, outbound=True) == l
+@case("internal-no-outbound-flag-ok")
+def _():
+    l = "@LEAD>ICOM>OPS P1 CM.ABC %s ASK pr.voice.intake~cfg" % T
+    assert ok(l) == l
+@case("cli-clients-and-outbound")
+def _():
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        assert E.main(["--codebook", FX, "--clients", CLFX, "--outbound",
+                       "@LEAD>ICOM>OPS P1 CM.ABC %s ASK pr.voice.intake~cfg %s" % (T, OUT_TOK)]) == 0
+        assert E.main(["--codebook", FX, "--outbound",
+                       "@LEAD>ICOM>OPS P1 CM.ABC %s ASK pr.voice.intake~cfg" % T]) == 1
+
 if __name__ == "__main__":
     fails = [r for r in results if not r[1]]
     for n, g, m in results: print(("PASS " if g else "FAIL ") + n + ("" if g else "  " + m))

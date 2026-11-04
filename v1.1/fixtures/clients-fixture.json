@@ -1,0 +1,7 @@
+{
+  "_note": "TEST FIXTURE ONLY. Fake placeholders. Never put real customer names, ids, or EIN digits here.",
+  "clients": [
+    {"id": "0000", "short": "ABC", "company": "CM", "name": "Example Client"},
+    {"id": "0001", "short": "XYZ", "company": "CM", "name": "Example Client B"}
+  ]
+}

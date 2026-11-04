@@ -1,20 +1,21 @@
-# ICOM v1.2 shorthand: specification
+# ICOM v1.3 shorthand: specification
 
 By Robert Stanley / Iron Noodle Technologies. MIT License.
 
-Engine 1.2.0. Line grammar is the v1.1 expander; v1.2 adds rule 18 (NO-ECHO). See PROTOCOL-v1.md.
+Engine 1.3.0. Line grammar is the v1.1 expander; v1.2 adds rule 18 (NO-ECHO); v1.3 adds Rule 14a (`CO.CLIENT`). See PROTOCOL-v1.md.
 
 ## Canonical v1 line (output)
-`@FROM>ICOM>TO[,TO] Pn LANE #iro-xxxxxxxx VERB [ACTION] object key=val ...`
+`@FROM>ICOM>TO[,TO] Pn CO.CLIENT #iro-xxxxxxxx VERB [ACTION] object key=val ...`
 - One line per message. No prose: everything after the object is `key=val`.
-- P0 is reserved for a customer-facing outage: it needs a non-internal lane and `why=down|outage|sec|money`.
+- The slot after priority is `CO.CLIENT` (e.g. `CM.ABC`); `IN.INT0` when there is no client. Bare legacy lane codes (`WST`, `INT0`, `LAP`, `AAA`, …) stay valid during the transition.
+- P0 is reserved for a customer-facing outage: it needs a non-internal slot (`INT0` / `*.INT0` is internal) and `why=down|outage|sec|money`.
 - Emails are written as `initial@domain` with no TLD.
 
 ## v1.1 input additions
 1. **Phrase shortcuts.** `$NAME` in the verb slot expands from the codebook `shortcuts.NAME.expand`. An optional `shortcuts.NAME.pri` supplies the priority if the sender gave none. Sender `key=val` pairs override template keys. A shortcut line must carry `cb=<codebook version>`.
 2. **Implied header.**
    - The `>ICOM` hop may be omitted.
-   - Priority defaults to the thread value, else P2. Lane defaults to the thread value, else INT0.
+   - Priority defaults to the thread value, else P2. Slot defaults to the thread value, else INT0 (legacy; prefer `IN.INT0` on new lines).
    - The ticket may be omitted once the thread (the sorted party set) is bound. A bare `#` followed by 8 hex characters is normalized to `#iro-`.
    - FROM, TO, verb and object are never implied.
    - The short forms `last4#seq` and `^tag` pass through unchanged.
@@ -25,7 +26,7 @@ Engine 1.2.0. Line grammar is the v1.1 expander; v1.2 adds rule 18 (NO-ECHO). Se
 ## autoNAK
 `@ICOM>ICOM>FROM P2 INT0 <ticket|#icom-nak> NAK org.proto why=<code> [det=<token>] cb=<version>`
 
-Codes: empty, multiline, no-header, bad-route, bad-agent, bad-pri, bad-lane, bad-ticket, bad-verb, bad-icx, prose, email, unk-shortcut, cb-required, cb-mismatch, p0-misuse.
+Codes: empty, multiline, no-header, bad-route, bad-agent, bad-pri, bad-lane, bad-ticket, bad-verb, bad-icx, prose, email, unk-shortcut, cb-required, cb-mismatch, p0-misuse, icx.co.unk, icx.cl.unk, icx.ext.tok.
 
 Relays may add codes for relay-level checks (bad-grammar, bad-from, k1-pci, unbound_tag, unbound_short, tag_in_ref, bad_tag, tag_clash, reject), spelled lowercase with hyphens. Thread-tag codes keep their underscores for compatibility.
 
@@ -34,12 +35,16 @@ Relays may add codes for relay-level checks (bad-grammar, bad-from, k1-pci, unbo
 ## Codebook (external; keys read)
 - `version`
 - `verbs`
-- `lanes` and/or `clients`
+- `lanes` and/or `clients` (legacy 3–4 letter codes; still accepted)
+- `companies` (optional; Rule 14a short → full. Engine defaults: IN/CM/CD)
 - `agents`
+- `external` (optional; default `EXT` — outbound recipients)
 - `icx.codes`
 - `paths`
 - `shortcuts`
 - `echo` (optional; rule 18 tunables)
+
+Optional `--clients PATH` (or `ICOM_CLIENTS` / `ICX_CLIENTS`) loads a private customer registry. Numeric `id` is canonical and must not appear on the public wire. `--outbound` (or TO in `external`) requires `co=` `cl=` `topic=` `icx=`.
 
 Each list may be given as a list, as dict keys, or as a list of `{code: ...}`.
 
@@ -75,6 +80,7 @@ Sender: t1–t4 are illegal (quiet after quiet). Relay, if they are sent: t0 rel
 Reference checker: `icom_noecho.py`. Tests: `tests/test_no_echo.py`.
 
 ## Changelog
+- 1.3.0 (2026-11-04): Rule 14a — `CO.CLIENT` slot, company shorthand/full, outbound tokens, legacy lane codes remain valid (ICX 1.2.0).
 - 1.2.0 (2026-10-29): no-echo — quiet-verb reply ban, relay suppress window, backlog collapse, unique DONE metrics (rule 18).
 - 1.1.0 (2026-10): implied header, shortcuts, autoNAK, close clause.
 
