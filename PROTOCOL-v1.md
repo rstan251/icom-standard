@@ -1,6 +1,6 @@
-# ICOM Compact Handoff Protocol — v1.2 ("CHP/1")
+# ICOM Compact Handoff Protocol — v1.3 ("CHP/1")
 
-Status: draft, 2026-10-29. Extends the house rule `TL;DR + D/R/F/O/Q/A`. Goal: unambiguous internal handoffs at fewer tokens than English. Not binary: measured base64 costs 42–49% MORE tokens than English (see Measurements). v1.2 adds rule 18 (NO-ECHO). The on-the-wire header is unchanged from v1.
+Status: draft, 2026-11-04. Extends the house rule `TL;DR + D/R/F/O/Q/A`. Goal: unambiguous internal handoffs at fewer tokens than English. Not binary: measured base64 costs 42–49% MORE tokens than English (see Measurements). v1.2 added rule 18 (NO-ECHO). v1.3 aligns the CLIENT/LANE slot with [ICX 1.2.0](https://github.com/rstan251/icx) Rule 14a (`CO.CLIENT`). Bare legacy lane codes stay valid during the transition.
 
 ## 1. Hard rules
 1. **Client-facing mail, SMS, voice scripts and anything a human outside the system reads stay plain English.** CHP is internal-bus only. The owner (human) gets English unless they ask for CHP.
@@ -12,10 +12,14 @@ Status: draft, 2026-10-29. Extends the house rule `TL;DR + D/R/F/O/Q/A`. Goal: u
 ## 2. Grammar (ABNF-ish)
 ```
 msg     = header *(LF body)
-header  = "@" from ">" to [ "," to ]* SP pri SP client [SP ticket] SP verb [SP action] SP object *(SP kv)
+header  = "@" from ">" to [ "," to ]* SP pri SP slot [SP ticket] SP verb [SP action] SP object *(SP kv)
 from/to = AGENT-code            ; codebook.agents
 pri     = "P0" / "P1" / "P2" / "P3"
-client  = CLIENT-code           ; codebook.clients, INT0 if none
+slot    = co-client / legacy-lane
+co-client = company "." client-short   ; e.g. CM.ABC, IN.INT0
+company = 2LETTER / full-code          ; IN/CM/CD or I-MD-XXXX / C-TBD-XXXX
+client-short = CLIENT-code / "INT0"    ; INT0 = no client
+legacy-lane = 3*4UPPER                 ; WST, INT0, LAP, CL01, … transition
 ticket  = "#" 1*VCHAR           ; e.g. #T-1234
 verb    = GO / HOLD / DONE / BLOCKED / REC / FYI / ASK / ACK / NAK
 action  = verb                  ; only after REC (REC HOLD, REC GO)
@@ -23,13 +27,13 @@ object  = lower.dot code or new noun
 kv      = key "=" value         ; value: token, list "a,b", alternatives "a|b", or "quoted text"
 body    = ("D:"/"R:"/"F:"/"O:"/"Q:"/"A:"/"txt:") SP text   ; legacy house lines, allowed
 ```
-Example: `@INFRA>CTO P1 CL01 #T-1234 BLOCKED srv.migrate why=dns.a:unprop,ssl:le-ratelimit ask=APPROVE le-staging|WAIT24h f=~/work/infra/client01-migration.md cc=LEAD`
+Example: `@ENG>ICOM>OPS P1 CM.ABC #T-n ASK pr.voice.intake~cfg`
 
 Mapping to house style: DONE≈D, REC≈R, f=≈F, #ticket/own=≈O, ASK/ask=≈Q, nx=/ret=≈A.
 
 ## 3. Codebook (see codebook.yaml)
-YAML with sections `verbs, priority, agents, clients, objects, fields, paths`. Rules: codes ≤6 chars; agents/clients/verbs UPPER, objects lower.dot; append-only with semver bump; retired codes are tombstoned, never reused; the ICOM router agent is the sole editor and proposes additions weekly (codes seen ≥5×/week as free text).
-Current registries: see codebook.yaml for agents, 26 clients (generic placeholders in public spec), 9 verbs, 15 field keys.
+YAML with sections `verbs, priority, agents, companies, clients, objects, fields, paths`. Rules: codes ≤6 chars (company full codes `L-ST-XXXX` are the exception); agents/clients/verbs UPPER, objects lower.dot; append-only with semver bump; retired codes are tombstoned, never reused; the ICOM router agent is the sole editor and proposes additions weekly (codes seen ≥5×/week as free text).
+Current registries: see codebook.yaml for agents, 3 company shorthands (IN/CM/CD), 26 legacy client placeholders, 9 verbs, field keys including outbound `co=` `cl=` `topic=` `icx=`. Numeric customer ids live only in a private registry.
 
 ## 4. Replies
 `@CTO>INFRA P1 CL01 #T-1234 ACK` / `... GO le-staging` / `NAK code=XYZ`. Threads keep the ticket.
@@ -58,12 +62,15 @@ Notes: full paths are ~25–35% of a v1 message; a short path alias (e.g. `%w=~/
 
 ## Rule 11 — ICOM routing
 All inter-agent messages route through ICOM, the LEAD agent included. No direct agent-to-agent sends.
-Format: `@FROM>ICOM>TO[,TO] P0-3 CLIENT #ticket VERB [ACTION] object key=val ...`
+Format: `@FROM>ICOM>TO[,TO] P0-3 CO.CLIENT #ticket VERB [ACTION] object key=val ...`
 - Address agent-to-agent sends to ICOM only. `>TO` after ICOM names the final recipient(s).
 - ICOM relays the line unchanged to TO, logs it (e.g. `~/work/icom/relay/YYYY-MM-DD.log`), and encodes plain English into CHP if needed.
 - Replies come back the same way: `@TO>ICOM>FROM ...`.
 - priority=true only if TO must act now; else false (ICOM keeps the sender's priority).
-- Example: `@LEAD>ICOM>CTO P1 INT0 #T-1234 GO deploy f=~/work/x.md nx=CTO:review`
+- The slot after priority is `CO.CLIENT`: 2-letter company shorthand plus client shorthand, e.g. `CM.ABC`. Use `IN.INT0` when there is no client.
+- Backward compatible: bare legacy lane codes (`WST`, `INT0`, `LAP`, `CL01`, …) stay valid during the transition. Prefer `CO.CLIENT` on new lines.
+- Example: `@ENG>ICOM>OPS P1 CM.ABC #T-n ASK pr.voice.intake~cfg`
+- No-client example: `@ENG>ICOM>OPS P1 IN.INT0 #T-n GO org.proto`
 
 ### Enforcement
 The rule-11 header is required system-wide. ICOM sends LEAD a daily digest of untagged or direct messages, flagging senders by count. Hard enforcement can use per-agent inboxes that only ICOM may write to.
@@ -99,10 +106,22 @@ Stall-fallback direct messages are allowed for internal traffic only. Client sen
 
 ## Rule 14: ICX object codes
 - The header `object` slot uses ICX (Iron Concept indeX), a Dewey-style concept code: class.division.section, coarse to fine, e.g. `pr.voice.intake~cfg`.
-- Every prefix is a valid code, so routing and search work by prefix. The lane/client stays in the `LANE` slot, never inside the object.
+- Every prefix is a valid code, so routing and search work by prefix. The lane/client stays in the `CO.CLIENT` slot, never inside the object.
 - Exact values (IDs, amounts, dates, paths) stay in `key=val` tokens, never in the object.
 - Unknown concept: send `x.<word>`; the ICOM router places it on the next codebook review. Unregistered codes are NAKed with `why=icx.unk`.
-- Spec, example codebook, relative index and validator: https://github.com/rstan251/icx
+- Spec, example codebook, relative index and validator: https://github.com/rstan251/icx (ICX 1.2.0).
+
+## Rule 14a: Company and client designation
+Matches [ICX 1.2.0](https://github.com/rstan251/icx) Rule 14a. The CLIENT/LANE slot is `COMPANY.CLIENT`.
+
+1. Agents write company shorthand in the header, e.g. `CM.ABC`, `IN.INT0`. Each public company record has `short` (2-letter, used in headers and tokens) and `full` (canonical). Lookup: `IN` → `I-MD-XXXX` (Iron Noodle LLC, state unverified); `CM` → `C-TBD-XXXX` (Cogent Marketing LLC, TBD); `CD` → `C-TBD-XXXX` (Cogent Digital LLC, TBD). The validator accepts registered shorthand or the full code, and expands shorthand to full code in parsed output. An unregistered shorthand is NAKed like an unregistered ICX code (`why=icx.co.unk`). `INT0` = internal/no client lane, valid under any company (default `IN.INT0`).
+2. Backward compatible: a bare registered customer shorthand (e.g. `ABC`) stays valid; the router/validator resolves its company from the private customer registry (default parent `CM` unless the registry says otherwise). **Bare legacy lane codes** (`WST`, `INT0`, `LAP`, `CL01`, …) also stay valid during the transition. Prefer `CO.CLIENT` on new lines.
+3. Routing and search work by prefix on the company token: `CM` matches all Cogent Marketing traffic, `CM.ABC` one customer. Do not treat `C` alone as unique (both Cogent entities share that letter; they are told apart by state and EIN last four). Bare `C` is NAKed (`why=icx.co.unk`). The ICX object code is unchanged.
+4. Customer records are added to the private registry as customers are onboarded. Each record has `id` (numeric, canonical), `short` (what agents write in the client half of the slot and in tokens), `company` (company shorthand), and `name`. Real id and shorthand assignments are TBD. The registry is the lookup for expanding customer shorthand to customer ID. Unregistered customer shorthand is NAKed (`why=icx.cl.unk`) when a registry is loaded. Without a registry, a bare customer shorthand that is not a legacy lane passes with a warning (expander: delivered if it matches `CO.CLIENT` form; unknown 3–4 letter tokens that are not legacy lanes still NAK `why=bad-lane`).
+5. Messages to outside agents (any ICOM line that leaves the fleet, e.g. to a partner firm's agent or a separate bot account) MUST also carry plain-word tokens `co=` `cl=` `topic=` (lowercase, hyphenated, e.g. `co=cogent-marketing cl=abc topic=voice-intake-config`) plus `icx=<version>`. Internal fleet messages keep short codes only. Each outside agent only ever receives shorthand codes for its own clients. Missing tokens NAK `why=icx.ext.tok`.
+6. The customer table (ids, shorthand, names) and real EIN last four are PRIVATE. This repo publishes only the company shorthand table (with `XXXX` in the full code) and the topic codebook. Ship `clients.example.yaml` with fake placeholders (`id: 0000`, `short: ABC`, `name: Example Client`). The expander loads a real registry from `--clients PATH` or `ICOM_CLIENTS` / `ICX_CLIENTS`. Real registry filenames (`clients.yaml`, `clients.local.yaml`) are gitignored. Duplicate customer ids or duplicate customer shorthand in a registry are rejected.
+
+Unknown company shorthand or full code: NAK `why=icx.co.unk`. Unknown customer shorthand, when a registry is loaded: NAK `why=icx.cl.unk`. Outbound lines missing `co=`, `cl=`, `topic=`, or `icx=` NAK `why=icx.ext.tok`.
 
 ## Rule 17: REC-LABEL (2026-10-19)
 - Every agent-originated recommended action surfaced to the owner (human) is prefixed `AGENTCODE: action` (AGENTCODE = originating agent, codebook.yaml `agents`).
@@ -161,5 +180,6 @@ Designed against a class of failure: agents answered each other's terminal and i
 Quiet then action. No second DONE unless the SoR state changes.
 
 ## Changelog
+- 2026-11-04: v1.3 Rule 14a company and client designation (ICX 1.2.0). Rule 11 slot is `CO.CLIENT` (`CM.ABC`, `IN.INT0`); full codes accepted; bare `C` NAK `why=icx.co.unk`; unknown client shorthand NAK `why=icx.cl.unk` when a registry is loaded; outbound `co=` `cl=` `topic=` `icx=` or NAK `why=icx.ext.tok`. Bare legacy lane codes (`WST`, `INT0`, `LAP`, …) stay valid during the transition.
 - 2026-10-29: v1.2 rule 18 NO-ECHO (quiet-verb reply ban, relay suppress window, backlog collapse, unique DONE metrics).
 - 2026-10-19: rule 17 REC-LABEL added.

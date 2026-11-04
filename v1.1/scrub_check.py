@@ -27,7 +27,11 @@ PATTERNS = [
     ("long-hex/b64", re.compile(r"\b[A-Za-z0-9_\-+/]{40,}={0,2}")),
     ("phone", re.compile(r"(?<![\w#.-])(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}\b")),
 ]
-ALLOW_DOMAINS = re.compile(r"\bexample\.(?:com|org|net)\b|\.(?:test|invalid|example)\b", re.I)
+ALLOW_DOMAINS = re.compile(
+    r"\bexample\.(?:com|org|net)\b|\.(?:test|invalid|example)\b"
+    r"|icx\.co\.unk",  # Rule 14a NAK code; not a hostname
+    re.I,
+)
 
 def load_deny(path):
     codes, names = [], []

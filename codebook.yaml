@@ -1,7 +1,10 @@
 # ICOM codebook — owned by the ICOM router agent. Append-only; never reuse a retired code.
-version: 1.6.0
-updated: 2026-10-29
-rules: {max_code_len: 6, case: UPPER for agents/clients/verbs, lower.dot for objects}
+# Company full codes use XXXX (never real EIN digits). Client names and numeric
+# ids are private; see clients.example.yaml. Both Cogent entities share letter C;
+# C alone is not unique (why=icx.co.unk).
+version: 1.7.0
+updated: 2026-11-04
+rules: {max_code_len: 6, case: UPPER for agents/clients/verbs, lower.dot for objects, company_full: L-ST-XXXX}
 verbs:       # header slot 4; maps to house codes D/R/F/O/Q/A
   GO: start/approved to proceed
   HOLD: pause, do not proceed
@@ -50,7 +53,13 @@ agents:
   BDL: biz dev lead
   # added 1.3.0
   CLBOT: client-facing bot (a2a via ICOM only; verbs FYI/ASK/ACK/NAK/DONE/BLOCKED)
-clients:     # generic placeholders
+  # added 1.7.0
+  EXT: outside agent (outbound; requires co= cl= topic= icx=)
+companies:   # Rule 14a; public shorthand only. Full codes use XXXX.
+  IN: {full: I-MD-XXXX, name: Iron Noodle LLC, words: iron-noodle, status: unverified}
+  CM: {full: C-TBD-XXXX, name: Cogent Marketing LLC, words: cogent-marketing, status: tbd}
+  CD: {full: C-TBD-XXXX, name: Cogent Digital LLC, words: cogent-digital, status: tbd}
+clients:     # generic placeholders + legacy lane codes (transition). Prefer CO.CLIENT (CM.ABC). Numeric id is private.
   CL01: client-01
   CL02: client-02
   CL03: client-03
@@ -112,6 +121,11 @@ fields:      # key=value keys
   qa: test result AGENT:pass/total
   impact: client impact (0 = none)
   scope: client/tenant scope (e.g. scope=CL14)  # added 1.4.0
+  # added 1.7.0 — outbound tokens (Rule 14a); required on lines that leave the fleet
+  co: outbound company words (lowercase-hyphenated, e.g. cogent-marketing)
+  cl: outbound client words (lowercase-hyphenated)
+  topic: outbound topic words (lowercase-hyphenated)
+  icx: ICX spec version on outbound lines (e.g. 1.2.0)
 echo:        # added 1.6.0 — rule 18 NO-ECHO tunables (seconds)
   window_s: 21600
   loop_n: 50
