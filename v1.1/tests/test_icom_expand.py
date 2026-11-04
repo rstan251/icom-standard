@@ -119,6 +119,15 @@ def _(): nak("@LEAD>ICOM>DEV P0 INT0 %s GO ops.deploy why=down" % T, "p0-misuse"
 def _(): nak("@LEAD>ICOM>DEV P0 AAA %s GO ops.deploy" % T, "p0-misuse")
 @case("p0-client-down-ok")
 def _(): ok("@LEAD>ICOM>DEV P0 AAA %s GO ops.deploy why=down" % T)
+@case("p00-emergency-int0-ok")
+def _():
+    l = "@DEV>ICOM>LEAD P0.0 INT0 %s BLOCKED ops.deploy why=down" % T; assert ok(l) == l
+@case("p00-emergency-no-why-not-naked")
+def _(): ok("@DEV>ICOM>LEAD P0.0 AAA %s ASK ops.deploy" % T)
+@case("p00-implied-hop")
+def _(): assert " P0.0 " in ok("@DEV>LEAD P0.0 %s BLOCKED ops.deploy why=down" % T)
+@case("nak-bad-pri-p10")
+def _(): nak("@LEAD>DEV P1.0 %s GO ops.deploy" % T, "bad-pri")
 @case("nak-bad-pri")
 def _(): nak("@LEAD>DEV P7 %s GO ops.deploy" % T, "bad-pri")
 @case("nak-bad-lane")

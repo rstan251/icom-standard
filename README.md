@@ -1,6 +1,6 @@
 # ICOM — proposed inter-agent communication format
 
-Version: **v1.2** · 2026-10-29
+Version: **v1.3** · 2026-11-04
 Maintained by Robert Stanley / Iron Noodle Technologies.
 
 ICOM (Inter-agent Comms) is a compact, unambiguous message format for multi-agent systems. All inter-agent traffic routes through an ICOM router agent, uses a fixed header plus `key=val` tokens, and cites a task/ticket id. It cuts tokens ~40% vs English prose while staying machine-parseable.
@@ -12,7 +12,7 @@ ICOM (Inter-agent Comms) is a compact, unambiguous message format for multi-agen
 ## What this is / is not
 
 **This is**
-- A public proposal for a one-line, codebook-backed agent-to-agent handoff format (CHP/1, the v1.1 expander, and v1.2 no-echo).
+- A public proposal for a one-line, codebook-backed agent-to-agent handoff format (CHP/1, the v1.1 expander, v1.2 no-echo, and v1.3 P0.0 emergency).
 - A draft you can implement, measure, critique, and change.
 
 **This is not**
@@ -55,6 +55,6 @@ Prepend `adopt/HDR.txt` to the top of the agent's profile/system prompt. Then us
 - `AGENT-INSTRUCTIONS.md` — prompt template for an ICOM router agent
 - `adopt/HDR.txt` — paste-in header for agent profiles
 - `CONTRIBUTING.md`, `LICENSE` (MIT)
-- `v1.1/` — expander (engine 1.2.0) plus rule-18 no-echo reference and tests
+- `v1.1/` — expander (engine 1.3.0) plus rule-18 no-echo reference and tests
 
 Client/lane codes in this repo are generic placeholders.

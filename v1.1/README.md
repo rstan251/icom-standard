@@ -1,4 +1,4 @@
-# ICOM v1.2 expander
+# ICOM v1.3 expander
 
 Deterministic shorthand expander and autoNAK for ICOM, a one-line agent-to-agent message format.
 By Robert Stanley / Iron Noodle Technologies. MIT License.
@@ -9,7 +9,7 @@ By Robert Stanley / Iron Noodle Technologies. MIT License.
 - `icom_noecho.py` is the rule-18 reference (quiet-verb reply ban, relay suppress, backlog collapse, unique DONE metrics).
 - No network calls, no model calls. Python 3 standard library only; PyYAML is needed only for YAML codebooks.
 
-Engine **1.2.0**. No production codebook ships here. `fixtures/codebook-fixture.json` is a made-up test fixture.
+Engine **1.3.0**. No production codebook ships here. `fixtures/codebook-fixture.json` is a made-up test fixture.
 
 ## Run
 ```
