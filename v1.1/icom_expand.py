@@ -15,16 +15,16 @@ Exit: 0 all lines OK, 1 one or more NAKs, 2 codebook load/pin error.
 """
 import argparse, hashlib, json, os, re, sys
 
-ENGINE_VERSION = "1.2.0"
+ENGINE_VERSION = "1.3.0"
 DEFAULT_PRI = "P2"
 DEFAULT_LANE = "INT0"
-PRIS = ("P0", "P1", "P2", "P3")
+PRIS = ("P0.0", "P0", "P1", "P2", "P3")   # P0.0 = emergency (rule 19)
 P0_WHY = ("down", "outage", "sec", "money")       # P0 = client-down / outage / security / money at risk
 
 # --- NAK reason codes (stable; relay-compatible spelling: lowercase, hyphen) ---
 NAK_CODES = {
     "empty": "empty line", "multiline": "more than one line", "no-header": "line does not start with @",
-    "bad-route": "hop other than ICOM", "bad-agent": "unknown FROM/TO agent", "bad-pri": "priority not P0-P3",
+    "bad-route": "hop other than ICOM", "bad-agent": "unknown FROM/TO agent", "bad-pri": "priority not P0.0 or P0-P3",
     "bad-lane": "unknown lane/client code", "bad-ticket": "no ticket and none implied by thread",
     "bad-verb": "verb not in codebook", "bad-icx": "missing object after verb", "prose": "bare words after object",
     "email": "full email address (use initial@domain, no TLD)", "unk-shortcut": "shortcut not in codebook",
@@ -129,7 +129,7 @@ def expand(line, cb, thread=None):
     i, key = 1, Thread.key(frm, tos)
     st = thread.get(key)
     pri = lane = ticket = None
-    if i < len(toks) and re.match(r"^P\d$", toks[i]):
+    if i < len(toks) and re.match(r"^P\d(?:\.0)?$", toks[i]):
         if toks[i] not in PRIS: raise Nak("bad-pri", toks[i])
         pri = toks[i]; i += 1
     if i < len(toks) and re.match(r"^[A-Z0-9]{3,4}$", toks[i]) and toks[i] not in cb.verbs:
@@ -157,7 +157,7 @@ def expand(line, cb, thread=None):
         user_kv = rest[1:]
         ukeys = {t.split("=", 1)[0] for t in user_kv if "=" in t}
         body = [t for t in exp if not ("=" in t and t.split("=", 1)[0] in ukeys)] + user_kv
-        if sc.get("pri") and not re.search(r"(^| )P\d( |$)", " ".join(toks[1:i])): pri = sc["pri"]
+        if sc.get("pri") and not re.search(r"(^| )P\d(?:\.0)?( |$)", " ".join(toks[1:i])): pri = sc["pri"]
     else:
         body = rest
     verb = body[0]
@@ -169,7 +169,9 @@ def expand(line, cb, thread=None):
     tail = body[j + 1:]
     bare = [t for t in tail if not KV.match(t)]
     if bare: raise Nak("prose", bare[0])
-    if pri == "P0":
+    if pri == "P0.0":   # emergency: never NAKed on wording; the relay warns on a missing why= instead
+        pass
+    elif pri == "P0":
         why = [t.split("=", 1)[1] for t in tail if t.startswith("why=")]
         if lane == DEFAULT_LANE or not why or not any(w.split(".")[0].split(",")[0] in P0_WHY for w in why):
             raise Nak("p0-misuse")

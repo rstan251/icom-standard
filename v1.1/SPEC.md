@@ -1,13 +1,14 @@
-# ICOM v1.2 shorthand: specification
+# ICOM v1.3 shorthand: specification
 
 By Robert Stanley / Iron Noodle Technologies. MIT License.
 
-Engine 1.2.0. Line grammar is the v1.1 expander; v1.2 adds rule 18 (NO-ECHO). See PROTOCOL-v1.md.
+Engine 1.3.0. Line grammar is the v1.1 expander; v1.2 adds rule 18 (NO-ECHO); v1.3 adds the P0.0 emergency priority (rule 19). See PROTOCOL-v1.md.
 
 ## Canonical v1 line (output)
 `@FROM>ICOM>TO[,TO] Pn LANE #iro-xxxxxxxx VERB [ACTION] object key=val ...`
 - One line per message. No prose: everything after the object is `key=val`.
 - P0 is reserved for a customer-facing outage: it needs a non-internal lane and `why=down|outage|sec|money`.
+- P0.0 is the emergency priority (rule 19). Any lane is allowed and it is never NAKed for wording; a missing `why=` is a relay warning, not a NAK.
 - Emails are written as `initial@domain` with no TLD.
 
 ## v1.1 input additions
@@ -75,6 +76,7 @@ Sender: t1–t4 are illegal (quiet after quiet). Relay, if they are sent: t0 rel
 Reference checker: `icom_noecho.py`. Tests: `tests/test_no_echo.py`.
 
 ## Changelog
+- 1.3.0 (2026-11-04): P0.0 emergency priority accepted by the expander (rule 19); `icom_noecho` never suppresses or collapses a P0.0 line
 - 1.2.0 (2026-10-29): no-echo — quiet-verb reply ban, relay suppress window, backlog collapse, unique DONE metrics (rule 18).
 - 1.1.0 (2026-10): implied header, shortcuts, autoNAK, close clause.
 

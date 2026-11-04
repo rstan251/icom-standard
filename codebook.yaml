@@ -14,7 +14,7 @@ verbs:       # header slot 4; maps to house codes D/R/F/O/Q/A
   NAK: rejected/cannot parse
   DECIDE: decision / state change (rule 18 reset); not quiet  # added 1.6.0
   FLAG: echo-loop alert (rule 18); not quiet, never suppressed
-priority: {P0: drop everything, P1: today, P2: this week, P3: whenever}
+priority: {P0.0: emergency (rule 19), P0: drop everything, P1: today, P2: this week, P3: whenever}
 agents:
   LEAD: lead agent (coordinates; only agent that speaks English to the owner)
   CTO: CTO / technical lead

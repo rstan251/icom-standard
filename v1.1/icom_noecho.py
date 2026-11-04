@@ -30,7 +30,7 @@ TAG = re.compile(r"^\^[a-z0-9]{4,8}$")
 IRO_FULL = re.compile(r"^#?iro-([0-9a-f]{8})$")
 SKIP_BODY = frozenset({
     "sender", "from", "item", "ticket", "verb", "to", "ts", "id",
-    "object", "action", "state", "no_reply", "collapsed_n", "stale", "kv",
+    "object", "action", "state", "no_reply", "collapsed_n", "stale", "kv", "pri",
 })
 
 
@@ -49,6 +49,11 @@ def is_reset(verb, codebook_verbs=None):
             return True
         return "HOLD" in codebook_verbs
     return verb in RESET
+
+
+def is_emergency(msg):
+    """Rule 19: a P0.0 line is never suppressed or collapsed by rule 18."""
+    return msg.get("pri") == "P0.0"
 
 
 def completion_state(msg):
@@ -250,6 +255,11 @@ class Relay:
         ticket = resolve_ticket(msg.get("item"), bound, self.seen)
         if ticket:
             self.seen.add(ticket)
+        if is_emergency(msg):
+            rec["disposition"] = "pass"
+            rec["why"] = "p00"
+            self.log.append(rec)
+            return {"disposition": "pass", "deliver_to": to, "record": rec}
         if is_reset(verb, self.codebook_verbs):
             if ticket:
                 self._reset_ticket(ticket)
@@ -305,7 +315,7 @@ def collapse_backlog(msgs, resume_ts=None, codebook_verbs=None, bound=None):
     passthrough = []
     for i, m in enumerate(msgs):
         item = resolve_ticket(m.get("item"), bound, seen)
-        if item is None:
+        if item is None or is_emergency(m):
             passthrough.append((i, m))
             continue
         if item not in order:

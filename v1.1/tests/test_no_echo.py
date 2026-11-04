@@ -34,6 +34,31 @@ def M(sender, verb, item=T, to=None, ts=0, mid=None, state=None, obj="ops.qc",
     d.update(kv)
     return d
 
+# --- rule 19: P0.0 is never suppressed or collapsed ---
+@case("p00-repeat-not-suppressed")
+def _():
+    r = N.Relay()
+    a = r.handle(M("DEV", "DONE", pri="P0.0", result="ok"), 0)
+    b = r.handle(M("DEV", "DONE", pri="P0.0", result="ok"), 10)
+    assert a["disposition"] == "pass" and b["disposition"] == "pass", (a, b)
+    assert b["deliver_to"] == ["QA"], b
+
+@case("p00-does-not-arm-window-for-normal-line")
+def _():
+    r = N.Relay()
+    r.handle(M("DEV", "DONE", pri="P0.0", result="ok"), 0)
+    c = r.handle(M("DEV", "DONE", pri="P1", result="ok"), 10)
+    assert c["disposition"] == "relay", c
+
+@case("p00-never-collapsed")
+def _():
+    msgs = [M("DEV", "DONE", ts=1, result="ok"), M("DEV", "DONE", ts=2, pri="P0.0", result="ok"),
+            M("DEV", "DONE", ts=3, pri="P0.0", result="ok"), M("DEV", "DONE", ts=4, result="ok")]
+    out = N.collapse_backlog(msgs)
+    p00 = [m for m in out if m.get("pri") == "P0.0"]
+    assert len(p00) == 2, out
+    assert len([m for m in out if m.get("pri") != "P0.0"]) == 1, out
+
 # --- 18.1 sender ---
 @case("sender-quiet-then-action-ok")
 def _():

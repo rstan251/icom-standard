@@ -1,6 +1,6 @@
-# ICOM Compact Handoff Protocol — v1.2 ("CHP/1")
+# ICOM Compact Handoff Protocol — v1.3 ("CHP/1")
 
-Status: draft, 2026-10-29. Extends the house rule `TL;DR + D/R/F/O/Q/A`. Goal: unambiguous internal handoffs at fewer tokens than English. Not binary: measured base64 costs 42–49% MORE tokens than English (see Measurements). v1.2 adds rule 18 (NO-ECHO). The on-the-wire header is unchanged from v1.
+Status: draft, 2026-11-04. Extends the house rule `TL;DR + D/R/F/O/Q/A`. Goal: unambiguous internal handoffs at fewer tokens than English. Not binary: measured base64 costs 42–49% MORE tokens than English (see Measurements). v1.2 adds rule 18 (NO-ECHO). The on-the-wire header is unchanged from v1.
 
 ## 1. Hard rules
 1. **Client-facing mail, SMS, voice scripts and anything a human outside the system reads stay plain English.** CHP is internal-bus only. The owner (human) gets English unless they ask for CHP.
@@ -14,7 +14,7 @@ Status: draft, 2026-10-29. Extends the house rule `TL;DR + D/R/F/O/Q/A`. Goal: u
 msg     = header *(LF body)
 header  = "@" from ">" to [ "," to ]* SP pri SP client [SP ticket] SP verb [SP action] SP object *(SP kv)
 from/to = AGENT-code            ; codebook.agents
-pri     = "P0" / "P1" / "P2" / "P3"
+pri     = "P0.0" / "P0" / "P1" / "P2" / "P3"   ; P0.0 = emergency, rule 19
 client  = CLIENT-code           ; codebook.clients, INT0 if none
 ticket  = "#" 1*VCHAR           ; e.g. #T-1234
 verb    = GO / HOLD / DONE / BLOCKED / REC / FYI / ASK / ACK / NAK
@@ -58,7 +58,7 @@ Notes: full paths are ~25–35% of a v1 message; a short path alias (e.g. `%w=~/
 
 ## Rule 11 — ICOM routing
 All inter-agent messages route through ICOM, the LEAD agent included. No direct agent-to-agent sends.
-Format: `@FROM>ICOM>TO[,TO] P0-3 CLIENT #ticket VERB [ACTION] object key=val ...`
+Format: `@FROM>ICOM>TO[,TO] P0.0|P0-3 CLIENT #ticket VERB [ACTION] object key=val ...`
 - Address agent-to-agent sends to ICOM only. `>TO` after ICOM names the final recipient(s).
 - ICOM relays the line unchanged to TO, logs it (e.g. `~/work/icom/relay/YYYY-MM-DD.log`), and encodes plain English into CHP if needed.
 - Replies come back the same way: `@TO>ICOM>FROM ...`.
@@ -73,11 +73,11 @@ The rule-11 header is required system-wide. ICOM sends LEAD a daily digest of un
   `ICOM: <exact shorthand line>` / `Plain English: <one sentence, no codes>`
 - No ticket cited: ICOM NAKs the message back to the sender (`@ICOM>FROM P2 INT0 NAK why=no-ticket`) and does not relay it.
 - Comments never include keys, passwords, card data or full account ids. Secrets are referred to by name only.
-- P0 and P1 are logged immediately. FYI and P2-3 items are batched into one comment per ticket per hour.
+- P0.0, P0 and P1 are logged immediately. FYI and P2-3 items are batched into one comment per ticket per hour.
 
 ### ICOM stall fallback
-If ICOM hasn't relayed a message within 1h, the sender sends it direct with the full rule-11 header and cc's LEAD. ICOM backfills the ticket log afterward. The daily digest does not flag these sends as bypasses.
-Stall-fallback direct messages are allowed for internal traffic only. Client sends always wait for LEAD + GATE approval.
+If ICOM hasn't relayed a message within 1h, the sender does not send it direct. It posts the exact line on the cited ticket, then resends it through ICOM with the same client message id, so the relay delivers it once and dedupes the retry. A sender that bypasses ICOM loses the log, the caps and the suppression rules, so v1.3 removes direct sends.
+Client sends always wait for LEAD + GATE approval.
 
 ## Rule 12: shorthand only
 - All agent chat + handoffs = CHP shorthand only. No English prose: no sentence TL;DRs, no expanded lists.
@@ -128,7 +128,7 @@ Designed against a class of failure: agents answered each other's terminal and i
 - Key: `(from, ticket, verb, bodyhash)`. `ticket` must resolve to a full `iro-xxxxxxxx` id (`#iro-xxxxxxxx`). last4 (`abcd#1`) binds only when exactly one full id already seen (or in the same batch) shares that last4. If last4 is unresolved or ambiguous, or the ticket is a non-iro id (`#T-1001`, `#OPS-12`), do not suppress and do not collapse. `bodyhash` is a hash of the normalized body (`verb` + REC action if any + object + sorted `key=val` tokens). An FYI with new tokens, a REC with a different action, or any quiet line whose body changed is a new key and is not suppressed.
 - Not message ID. Message-ID dedup alone does not satisfy this rule.
 - Disposition of a suppressed line: log it as suppressed (never a silent drop). Deliver it to LEAD or OWNER only when they are already among the addressed recipients. Do not add LEAD or OWNER. Do not fan it out to other agents.
-- Action verbs and FLAG are never suppressed by this rule. The first quiet body in a window is relayed normally.
+- Action verbs, FLAG and any P0.0 line (rule 19) are never suppressed or collapsed by this rule. The first quiet body in a window is relayed normally.
 - A suppressed repeat does not extend the window. The clock stays on the first relayed line for that key.
 - A non-quiet reset verb on the ticket clears the window: GO, ASK, DECIDE, BLOCKED, NAK, and HOLD when HOLD is in the codebook. FLAG does not reset. A DONE after a new GO is therefore not suppressed.
 - If echo checking errors, deliver the line and log the error (fail-open). Corrupt state files are set aside (parked as `.old`), never deleted. State-dir creation catches `OSError` (PermissionError, FileExistsError when the parent path is a file, read-only filesystem): deliver, log, and run without persistence. Never crash.
@@ -160,6 +160,17 @@ Designed against a class of failure: agents answered each other's terminal and i
 ```
 Quiet then action. No second DONE unless the SoR state changes.
 
+## Rule 19: P0.0 emergency (2026-11-04)
+P0.0 is an emergency: something is down, money or data is at risk, or there is a security incident, and waiting for normal review makes it worse.
+- **Who:** any registered agent may send it.
+- **Delivery:** ICOM delivers P0.0 ahead of every other priority and wakes the recipient immediately. It is never suppressed as an ack-only, repeat or echo line (rule 18 does not apply). LEAD always gets a copy.
+- **Wording:** a P0.0 is never NAKed for wording or lane. Send `why=` anyway. A P0.0 without `why=` is delivered with a warning logged.
+- **Inheritance:** an urgent wake needs P0.0 stated on the line itself. A thread that inherits P0.0 through shorthand lands as P0.
+- **Caps:** P0.0 is capped at 6 per sender per hour and P0 at 30 (reference defaults). Over the cap the line is demoted one level, P0.0 to P0 by rewriting the header before signing, and one FLAG is logged on the offending ticket. A periodic status line may be exempted from the P0 cap only.
+- **Review:** an emergency fix may ship before full review, but a full independent review is required within 24h. The ticket stays open until it passes.
+- **Audit:** every P0.0 is logged to its own record, so emergency use can be reviewed after the fact.
+
 ## Changelog
+- 2026-11-04: v1.3 rule 19 P0.0 emergency (priority above P0, never suppressed, per-sender caps with demotion, review within 24h); stall fallback resends through ICOM instead of sending direct.
 - 2026-10-29: v1.2 rule 18 NO-ECHO (quiet-verb reply ban, relay suppress window, backlog collapse, unique DONE metrics).
 - 2026-10-19: rule 17 REC-LABEL added.
