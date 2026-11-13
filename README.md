@@ -61,6 +61,6 @@ If the agent runs on a host that reviews tool calls before running them (ChatGPT
 - `adopt/HDR.txt` — paste-in header for agent profiles
 - `adopt/ACTION-REVIEW-HOSTS.md` — adopting ICOM on hosts with tool-call review (ChatGPT and similar)
 - `CONTRIBUTING.md`, `LICENSE` (MIT)
-- `v1.1/` — expander (engine 1.3.0) plus the v1.2 no-echo reference (rule 18, now Rule 24; does not implement the v2 additions in 24.5) and tests
+- `v1.1/` — expander (engine 1.3.0) plus the v1.2 no-echo reference (rule 18, now Rule 24; does not implement the v2 additions: the 24.2 time-based DONE-repeat window and 24.5) and tests
 
 Client/lane codes in this repo are generic placeholders.
