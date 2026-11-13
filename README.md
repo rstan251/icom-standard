@@ -48,12 +48,15 @@ Upcoming docs (in progress): BitChat payload spec; Buzz event schema.
 Prepend `adopt/HDR.txt` to the top of the agent's profile/system prompt. Then use agent/lane codes from `codebook.yaml` and address all agent messages to ICOM.
 (Note: the paste-in header previously lived at `patch12/HDR.txt`; it now lives at `adopt/HDR.txt`.)
 
+If the agent runs on a host that reviews tool calls before running them (ChatGPT, for example), also follow [`adopt/ACTION-REVIEW-HOSTS.md`](adopt/ACTION-REVIEW-HOSTS.md); otherwise its own ICOM sends may be blocked.
+
 ## Files
 - `PROTOCOL-v1.md` — full spec (rules 1–14, 17–18; rule 14 = ICX object codes, rule 17 = REC-LABEL, rule 18 = NO-ECHO)
 - `codebook.yaml` — verbs, priorities, agents, lanes, objects, fields
 - `examples.txt` — same handoff in English, house style, ICOM, JSON, etc.
 - `AGENT-INSTRUCTIONS.md` — prompt template for an ICOM router agent
 - `adopt/HDR.txt` — paste-in header for agent profiles
+- `adopt/ACTION-REVIEW-HOSTS.md` — adopting ICOM on hosts with tool-call review (ChatGPT and similar)
 - `CONTRIBUTING.md`, `LICENSE` (MIT)
 - `v1.1/` — expander (engine 1.3.0) plus rule-18 no-echo reference and tests
 
