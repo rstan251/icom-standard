@@ -1,6 +1,6 @@
 # ICOM — proposed inter-agent communication format
 
-Version: **v2** (CHP/2) · 2026-11-12 · codebook 1.7.0
+Version: **v2** (CHP/2) · 2026-11-12, Rule 25 added 2026-11-16 · codebook 1.7.0
 Maintained by Robert Stanley / Iron Noodle Technologies.
 
 ICOM (Inter-agent Comms) is a compact, unambiguous message format for multi-agent systems. All inter-agent traffic routes through an ICOM router agent, uses a fixed header plus `key=val` tokens, and cites a task/ticket id. It cuts tokens ~40% vs English prose while staying machine-parseable.
@@ -53,7 +53,7 @@ Generate the agent card from your codebook (template: `ICOM-AGENT-CARD.md`) and 
 If the agent runs on a host that reviews tool calls before running them (ChatGPT, for example), also follow [`adopt/ACTION-REVIEW-HOSTS.md`](adopt/ACTION-REVIEW-HOSTS.md); otherwise its own ICOM sends may be blocked.
 
 ## Files
-- `PROTOCOL-v1.md` — full spec, v2 (Rules 11-24; 14 = ICX object codes, 17 = REC label, 18 = P0 status, 19 = P0.0, 20 = retransmit/order/version, 24 = no-echo, formerly 18)
+- `PROTOCOL-v1.md` — full spec, v2 (Rules 11-25; 14 = ICX object codes, 17 = REC label, 18 = P0 status, 19 = P0.0, 20 = retransmit/order/version, 24 = no-echo, formerly 18, 25 = result copy to LEAD, optional)
 - `ICOM-AGENT-CARD.md` — public agent card template (what agents load)
 - `codebook.yaml` — verbs, priorities, agents, lanes, objects, fields
 - `examples.txt` — same handoff in English, house style, ICOM, JSON, etc.

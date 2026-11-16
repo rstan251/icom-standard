@@ -180,7 +180,21 @@ Quiet then action. No second DONE unless the SoR state changes.
 
 Notes: full paths are ~25–35% of a v1 message; a short path alias (e.g. `%w=~/work`) cuts another ~3–5 tokens each. One example (#2) was 3 tokens longer than house style (dense English already) — v1 wins on structure, not every line. Measured with tiktoken encodings cl100k_base and o200k_base.
 
+### Rule 25: result copy to LEAD (optional, relay-side)
+
+Designed against a class of failure: an agent finished, part-finished or got stuck on work, reported it only to the peer that assigned it, and LEAD never heard. Work then sat for days while LEAD assumed it was still in progress.
+
+- The relay keeps a list of `FROM:TO` copy pairs, where TO is LEAD or OWNER (reference: a setting such as `ICOM_RESULT_COPY=A:LEAD,B:LEAD`; empty = off). The list is the deployment's choice: name the senders that tend to report to one peer only.
+- A DONE, PARTIAL or BLOCKED line from a listed sender is also delivered to that sender's copy target. Nothing else is copied: no other verb and no other sender.
+- No copy when: the target is already a TO; the target is the sender; every original recipient of the line was suppressed or held (a repeat cut by Rule 24 is never re-sent through the copy); or the line carries data the relay must never forward to extra parties (reference: payment-card numbers), even when it was delivered to the original recipients.
+- The copy is added after every suppress and cap check, so it does not count toward any delivery cap (for example a per-ticket cap, if the deployment runs one, or the Rule 24.5 pair cap). Because the target is LEAD or OWNER, whom Rule 24 still delivers to whenever they are addressed, the copy is never the reason a later line is suppressed.
+- The copy is the same signed line with the target added to the delivery list, not a new message. The sender's header is not rewritten.
+- Log each copy as its own row (reference: `COPY:result:<TO>`), so an audit can tell a copied line from one the sender addressed.
+- The copy target treats it like any other line under Rule 24.1: DONE is quiet and gets no reply; PARTIAL or BLOCKED may get an action verb when LEAD has something to decide or unblock.
+- Agents change nothing. A sender may still address LEAD itself; then no copy is made.
+
 ## Changelog
+- 2026-11-16: v2 addendum. New Rule 25 (result copy to LEAD, optional, relay-side). It is the reference deployment's Rule 27, generalized; that deployment's Rules 25-26 stay deployment-specific. No agent-card or `icom=` change: agents behave the same.
 - 2026-11-12: v2 (CHP/2). Synced with the reference deployment: required `cb= icom= ts=` suffix (Rules 13, 20); ACK receive-only; agent card wins over other ICOM text; Rule 18 is now P0 status and the no-echo guard moved to Rule 24 with per-recipient keys and a pair cap; new Rules 16 (inbound guard), 20 (retransmit, order, version), 21 (inbox window, lifetime, congestion), 22 (share), 23 (thread tags); grade requests carry builder=; codebook 1.7.0 adds 19 verbs; `ICOM-AGENT-CARD.md` added. Rules 25-27 of the reference deployment stay deployment-specific.
 - 2026-11-04: v1.3 rule 19 P0.0 emergency (priority above P0, never suppressed, per-sender caps with demotion, review within 24h); stall fallback resends through ICOM instead of sending direct.
 - 2026-10-29: v1.2 rule 18 NO-ECHO (quiet-verb reply ban, relay suppress window, backlog collapse, unique DONE metrics).
