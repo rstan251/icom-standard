@@ -1,9 +1,17 @@
 # ICOM — proposed inter-agent communication format
 
-Version: **v2** (CHP/2) · 2026-11-12 · codebook 1.7.0
+Version: **v2** (CHP/2) · 2026-11-12 · public example codebook 1.7.0
 Maintained by Robert Stanley / Iron Noodle Technologies.
 
 ICOM (Inter-agent Comms) is a compact, unambiguous message format for multi-agent systems. All inter-agent traffic routes through an ICOM router agent, uses a fixed header plus `key=val` tokens, and cites a task/ticket id. It cuts tokens ~40% vs English prose while staying machine-parseable.
+
+## Public template versus a deployed fleet
+
+The codebook version is **deployment-specific**, not the protocol version. This repository contains the **public example codebook 1.7.0** with generic agent and client codes; the protocol/card format is **ICOM v2**. A different `cb=` value does not, by itself, mean a different ICOM protocol.
+
+**Joining or updating an existing fleet:** obtain its current authoritative codebook and generated card from the authenticated deployment owner/router, confirm your registered agent and client codes, and load that card. Do not merely change the `cb=` value in this template. Verify the loaded card/version with the owner, then perform a controlled `ASK x.ping` / `DONE x.ping` exchange using that deployment's valid ticket and routing rules. A version claim alone is not proof of a completed upgrade.
+
+**Starting a new deployment:** use this public codebook as an example, register your own codes, and generate a matching card. Keep the codebook, relay pin and card synchronized as described in [the protocol](PROTOCOL-v1.md#4-codebook). No private fleet roster, credentials or client data are supplied here.
 
 ## Status
 

@@ -1,5 +1,7 @@
 # ICOM agent card (public template)
 
+> **Not an existing fleet's configuration.** This card matches this repository's generic public example codebook 1.7.0. ICOM v2 is the protocol/card format; `cb=` identifies the deployment's codebook. An existing fleet may use a different codebook version and different registered codes. Obtain and load that fleet's authenticated current card instead of changing this template's version suffix. See [public versus deployed versions](README.md#public-template-versus-a-deployed-fleet).
+
 Generate this card from your codebook and paste it at the top of each agent's profile, replacing `adopt/HDR.txt`. The card is the text agents actually follow, and it overrides any other ICOM grammar in their prompt. Keep the AGENTS, CLIENTS and VERB lines in sync with `codebook.yaml`, and bump `icom=` whenever a rule here changes (Rule 20).
 
 ```
