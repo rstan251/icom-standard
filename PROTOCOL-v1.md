@@ -195,18 +195,18 @@ Designed against a class of failure: an agent finished, part-finished or got stu
 
 ## Agent roster
 
-This is the Iron Noodle Technologies reference-deployment roster as of 2026-11-17 20:20 AZ (America/Phoenix). It lists all 131 agents: ICOM code, name, host or IP, MAC where available, LLM, and how each is reached. Unverified values are marked `unverified` or `n/a`. Tokens, keys, passwords, credential paths and secrets are omitted.
+This is the Iron Noodle Technologies reference-deployment roster as of 2026-11-17 20:20 AZ (America/Phoenix). It lists all 131 agents: ICOM code, name, LLM, and how each is reached. Unverified values are marked `unverified` or `n/a`. Tokens, keys, passwords, credential paths and secrets are omitted.
 
 Some ICOM codes are used by both a Grok-G agent and a VPS runner seat. A message sent to that code on the IRON fleet bridge is delivered to the VPS seat. Reach the Grok-G agent by SendToAgent.
 
-The four IRON hosts (for host/IP/MAC context):
+The four IRON hosts:
 
-| IRON host | Hostname | IP addresses | MAC (primary uplink) | Notes |
-|---|---|---|---|---|
-| vps | srv805570 / srv805570.hstgr.cloud | Tailscale 100.125.196.122; public 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | Hostinger VPS (ID 805570). Fleet ICOM relay, LiteLLM :4000, agent-runner and Buzz exec seats. |
-| hermes | srv738448 / srv738448.hstgr.cloud | Tailscale 100.106.199.31; public 193.203.164.163 | eth0 4a:e8:d4:b0:54:90 | Hostinger VPS (ID 738448). Client-production Docker swarm, voice, VidProd worker. |
-| mini | bertos-Mac-mini.local | Tailscale 100.102.95.93; LAN 192.168.0.117 (en1) | en1 da:f7:f2:ee:cf:30 | Mac mini. Mini relay (`:8790`) and local Ollama (live tags: gemma4-26b-32k:latest, ministral-3:14b, qwen3-vl:8b, gemma4:26b-a4b-it-qat, qwen2.5-coder:14b, gemma4-12b-coding:latest, gemma4:12b-mlx, nomic-embed-text:latest). Public WAN IP not re-checked this pass. |
-| air | Roberts-MacBook-Air.local | Tailscale 100.115.128.112; LAN 10.0.0.22 (en0) | en0 2e:5a:d8:bf:6d:f9 | MacBook Air. irt-vault git checkout (`rstan251/irt-vault`) lives here. Public WAN IP not re-checked this pass. |
+| IRON host | Notes |
+|---|---|
+| vps | Fleet ICOM relay, LiteLLM, agent-runner and Buzz exec seats. |
+| hermes | Client-production Docker swarm, voice, VidProd worker. |
+| mini | Mac mini. Mini relay and local Ollama (live tags: gemma4-26b-32k:latest, ministral-3:14b, qwen3-vl:8b, gemma4:26b-a4b-it-qat, qwen2.5-coder:14b, gemma4-12b-coding:latest, gemma4:12b-mlx, nomic-embed-text:latest). |
+| air | MacBook Air. |
 
 Grok Bot cloud agents do not run on these hosts. Claude JA / CX / GX sessions were not a complete verified roster in this pass and are not listed below.
 
@@ -214,169 +214,170 @@ Grok Bot cloud agents do not run on these hosts. Claude JA / CX / GX sessions we
 
 44 agents.
 
-| Name | ICOM code | Host / IP | MAC | LLM | How reached |
-|---|---|---|---|---|---|
-| Sara-G (Sara · Digital Assistant-G) | SARA | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| CTO-G | CTO (shared with CTO-VPS) | n/a | n/a | Grok Bot (platform-managed) | SendToAgent only; do not send bridge code CTO |
-| Tech Team Leader-G | TTL | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Infra Engineer-G | INFRA | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Integrations Engineer-G | INT | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Voice Engineer-G | VOICE | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Security Engineer-G | SEC | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Sync Watchdog-G | SYNC | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Synthflow Exit-G | SFX | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| LLM Researcher-G | LLMR | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| CRM Lead-G | CRM | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| CRMB1-G | CRMB1 | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| CRMB2-G | CRMB2 | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Keeley-G | KEEL | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| CRM Tut-G | CRMT | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| GHL Webhook Bot-G | GHLWH | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Risk Manager-G | RISK | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Auditor-G | AUD | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Legal & Compliance-G | LEGAL | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Biz Dev Lead-G | BDL | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Upsell Bot-G | UPSL | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Deal Closer-G | DEAL | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Prospector-G | PROS | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| HR-G | HRM | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Client Bot Factory-G | CBF | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Command Center Manager-G | CCM | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Comms-G | COMMS | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Internal Comms-G | ICOM | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Router-G | ROUTE (roster; live bridge code unverified — 2026-11-17 20:04 audit said none) | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Gauntlet-G | GAUNT | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| QC-G | QC | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| HS Desk-G | HSD | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Inbox Poller-G | POLL | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Breeden Support-G | BRSUP | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Mejer Support-G | MJSUP | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Marra Support-G | MRSUP | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Westbrook Support-G | WBSUP | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Bankruptcy Bot-G | BANK | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| CF Agent-G | CFA | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Librarian-G | LIB | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Controller-G | CTRL | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| CFO-G | CFO | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| ICOM Builder-G | unverified (BLDR/ICOMB were staged only) | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
-| Contract Speed-G | unverified | n/a | n/a | Grok Bot (platform-managed) | SendToAgent |
+| Name | ICOM code | LLM | How reached |
+|---|---|---|---|
+| Sara-G (Sara · Digital Assistant-G) | SARA | Grok Bot (platform-managed) | SendToAgent |
+| CTO-G | CTO (shared with CTO-VPS) | Grok Bot (platform-managed) | SendToAgent only; do not send bridge code CTO |
+| Tech Team Leader-G | TTL | Grok Bot (platform-managed) | SendToAgent |
+| Infra Engineer-G | INFRA | Grok Bot (platform-managed) | SendToAgent |
+| Integrations Engineer-G | INT | Grok Bot (platform-managed) | SendToAgent |
+| Voice Engineer-G | VOICE | Grok Bot (platform-managed) | SendToAgent |
+| Security Engineer-G | SEC | Grok Bot (platform-managed) | SendToAgent |
+| Sync Watchdog-G | SYNC | Grok Bot (platform-managed) | SendToAgent |
+| Synthflow Exit-G | SFX | Grok Bot (platform-managed) | SendToAgent |
+| LLM Researcher-G | LLMR | Grok Bot (platform-managed) | SendToAgent |
+| CRM Lead-G | CRM | Grok Bot (platform-managed) | SendToAgent |
+| CRMB1-G | CRMB1 | Grok Bot (platform-managed) | SendToAgent |
+| CRMB2-G | CRMB2 | Grok Bot (platform-managed) | SendToAgent |
+| Keeley-G | KEEL | Grok Bot (platform-managed) | SendToAgent |
+| CRM Tut-G | CRMT | Grok Bot (platform-managed) | SendToAgent |
+| GHL Webhook Bot-G | GHLWH | Grok Bot (platform-managed) | SendToAgent |
+| Risk Manager-G | RISK | Grok Bot (platform-managed) | SendToAgent |
+| Auditor-G | AUD | Grok Bot (platform-managed) | SendToAgent |
+| Legal & Compliance-G | LEGAL | Grok Bot (platform-managed) | SendToAgent |
+| Biz Dev Lead-G | BDL | Grok Bot (platform-managed) | SendToAgent |
+| Upsell Bot-G | UPSL | Grok Bot (platform-managed) | SendToAgent |
+| Deal Closer-G | DEAL | Grok Bot (platform-managed) | SendToAgent |
+| Prospector-G | PROS | Grok Bot (platform-managed) | SendToAgent |
+| HR-G | HRM | Grok Bot (platform-managed) | SendToAgent |
+| Client Bot Factory-G | CBF | Grok Bot (platform-managed) | SendToAgent |
+| Command Center Manager-G | CCM | Grok Bot (platform-managed) | SendToAgent |
+| Comms-G | COMMS | Grok Bot (platform-managed) | SendToAgent |
+| Internal Comms-G | ICOM | Grok Bot (platform-managed) | SendToAgent |
+| Router-G | ROUTE (roster; live bridge code unverified — 2026-11-17 20:04 audit said none) | Grok Bot (platform-managed) | SendToAgent |
+| Gauntlet-G | GAUNT | Grok Bot (platform-managed) | SendToAgent |
+| QC-G | QC | Grok Bot (platform-managed) | SendToAgent |
+| HS Desk-G | HSD | Grok Bot (platform-managed) | SendToAgent |
+| Inbox Poller-G | POLL | Grok Bot (platform-managed) | SendToAgent |
+| Breeden Support-G | BRSUP | Grok Bot (platform-managed) | SendToAgent |
+| Mejer Support-G | MJSUP | Grok Bot (platform-managed) | SendToAgent |
+| Marra Support-G | MRSUP | Grok Bot (platform-managed) | SendToAgent |
+| Westbrook Support-G | WBSUP | Grok Bot (platform-managed) | SendToAgent |
+| Bankruptcy Bot-G | BANK | Grok Bot (platform-managed) | SendToAgent |
+| CF Agent-G | CFA | Grok Bot (platform-managed) | SendToAgent |
+| Librarian-G | LIB | Grok Bot (platform-managed) | SendToAgent |
+| Controller-G | CTRL | Grok Bot (platform-managed) | SendToAgent |
+| CFO-G | CFO | Grok Bot (platform-managed) | SendToAgent |
+| ICOM Builder-G | unverified (BLDR/ICOMB were staged only) | Grok Bot (platform-managed) | SendToAgent |
+| Contract Speed-G | unverified | Grok Bot (platform-managed) | SendToAgent |
 
-### VPS agent-runner fleet (host `vps` / srv805570)
+### VPS agent-runner fleet (host `vps`)
 
 40 agents.
 
-| Name | ICOM code | Host / IP | MAC | LLM | How reached |
-|---|---|---|---|---|---|
-| CTO-VPS | CTO | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code CTO → VPS CTO inbox → agent-runner@cto (also iron-buzz-exec@cto). See CTO-VPS section. |
-| Auditor-VPS | AUD | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | local-big (LiteLLM :4000; underlying version unverified) | Fleet bridge code AUD → VPS inbox → agent-runner@auditor |
-| Bankruptcy-VPS | BANK | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | local-big (LiteLLM :4000; underlying version unverified) | Fleet bridge code BANK → VPS inbox → agent-runner@bankruptcy |
-| Biz Dev Lead-VPS | BDL | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code BDL → VPS inbox → agent-runner@bizdev |
-| Breeden Support-VPS | BRSUP | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | local-big (LiteLLM :4000; underlying version unverified) | Fleet bridge code BRSUP → VPS inbox → agent-runner@breeden-support |
-| Command Center Manager-VPS | CCM | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code CCM → VPS inbox → agent-runner@ccm |
-| CF Agent-VPS | CFA | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code CFA → VPS inbox → agent-runner@cf-agent |
-| CFO-VPS | CFO | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code CFO → VPS inbox → agent-runner@cfo |
-| Client Bot Factory-VPS | CBF | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | local-big (LiteLLM :4000; underlying version unverified) | Fleet bridge code CBF → VPS inbox → agent-runner@client-bot-factory |
-| Comms-VPS | COMMS | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code COMMS → VPS inbox → agent-runner@comms |
-| Controller-VPS | CTRL | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code CTRL → VPS inbox → agent-runner@controller |
-| CRM Bot1-VPS | CRMB1 | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | local-big (LiteLLM :4000; underlying version unverified) | Fleet bridge code CRMB1 → VPS inbox → agent-runner@crm-bot1 |
-| CRM Bot2-VPS | CRMB2 | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | local-big (LiteLLM :4000; underlying version unverified) | Fleet bridge code CRMB2 → VPS inbox → agent-runner@crm-bot2 |
-| CRM Lead-VPS | CRM | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | local-big (LiteLLM :4000; underlying version unverified) | Fleet bridge code CRM → VPS inbox → agent-runner@crm-lead |
-| CRM Tut-VPS | CRMT | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | local-big (LiteLLM :4000; underlying version unverified) | Fleet bridge code CRMT → VPS inbox → agent-runner@crm-tut |
-| Deal Closer-VPS | DEAL | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | local-big (LiteLLM :4000; underlying version unverified) | Fleet bridge code DEAL → VPS inbox → agent-runner@deal-closer |
-| Gauntlet-VPS | GAUNT | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code GAUNT → VPS inbox → agent-runner@gauntlet |
-| GHL Webhook-VPS | GHLWH | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | local-big (LiteLLM :4000; underlying version unverified) | Fleet bridge code GHLWH → VPS inbox → agent-runner@ghl-webhook |
-| HR-VPS | HRM | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code HRM → VPS inbox → agent-runner@hr |
-| HS Desk-VPS | HSD | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | local-big (LiteLLM :4000; underlying version unverified) | Fleet bridge code HSD → VPS inbox → agent-runner@hs-desk |
-| ICOM-VPS (runner seat) | ICOM | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | local-big (LiteLLM :4000; underlying version unverified) | Fleet bridge code ICOM → VPS inbox → agent-runner@icom |
-| Inbox Poller-VPS | POLL | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | local-big (LiteLLM :4000; underlying version unverified) | Fleet bridge code POLL → VPS inbox → agent-runner@inbox-poller |
-| Infra Engineer-VPS | INFRA | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code INFRA → VPS inbox → agent-runner@infra |
-| Integrations Engineer-VPS | INT | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | local-big (LiteLLM :4000; underlying version unverified) | Fleet bridge code INT → VPS inbox → agent-runner@integrations |
-| Keeley-VPS | KEEL | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | local-big (LiteLLM :4000; underlying version unverified) | Fleet bridge code KEEL → VPS inbox → agent-runner@keeley |
-| Legal & Compliance-VPS | LEGAL | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | local-big (LiteLLM :4000; underlying version unverified) | Fleet bridge code LEGAL → VPS inbox → agent-runner@legal |
-| Librarian-VPS | LIB | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code LIB → VPS inbox → agent-runner@librarian |
-| LLM Researcher-VPS | LLMR | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code LLMR → VPS inbox → agent-runner@llm-researcher |
-| Marra Support-VPS | MRSUP | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | local-big (LiteLLM :4000; underlying version unverified) | Fleet bridge code MRSUP → VPS inbox → agent-runner@marra-support |
-| Mejer Support-VPS | MJSUP | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | local-big (LiteLLM :4000; underlying version unverified) | Fleet bridge code MJSUP → VPS inbox → agent-runner@mejer-support |
-| Prospector-VPS | PROS | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | local-big (LiteLLM :4000; underlying version unverified) | Fleet bridge code PROS → VPS inbox → agent-runner@prospector |
-| QC-VPS | QC | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | local-big (LiteLLM :4000; underlying version unverified) | Fleet bridge code QC → VPS inbox → agent-runner@qc |
-| Risk Manager-VPS | RISK | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code RISK → VPS inbox → agent-runner@risk |
-| Security Engineer-VPS | SEC | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code SEC → VPS inbox → agent-runner@security |
-| Sync Watchdog-VPS | SYNC | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | local-big (LiteLLM :4000; underlying version unverified) | Fleet bridge code SYNC → VPS inbox → agent-runner@sync-watchdog |
-| Synthflow Exit-VPS | SFX | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | local-big (LiteLLM :4000; underlying version unverified) | Fleet bridge code SFX → VPS inbox → agent-runner@synthflow-exit |
-| Tech Team Leader-VPS | TTL | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code TTL → VPS inbox → agent-runner@ttl |
-| Upsell Bot-VPS | UPSL | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | local-big (LiteLLM :4000; underlying version unverified) | Fleet bridge code UPSL → VPS inbox → agent-runner@upsell |
-| Voice Engineer-VPS | VOICE | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | local-big (LiteLLM :4000; underlying version unverified) | Fleet bridge code VOICE → VPS inbox → agent-runner@voice |
-| Westbrook Support-VPS | WBSUP | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | local-big (LiteLLM :4000; underlying version unverified) | Fleet bridge code WBSUP → VPS inbox → agent-runner@westbrook-support |
+| Name | ICOM code | LLM | How reached |
+|---|---|---|---|
+| CTO-VPS | CTO | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code CTO → VPS CTO inbox |
+| Auditor-VPS | AUD | local-big (LiteLLM; underlying version unverified) | Fleet bridge code AUD → VPS inbox |
+| Bankruptcy-VPS | BANK | local-big (LiteLLM; underlying version unverified) | Fleet bridge code BANK → VPS inbox |
+| Biz Dev Lead-VPS | BDL | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code BDL → VPS inbox |
+| Breeden Support-VPS | BRSUP | local-big (LiteLLM; underlying version unverified) | Fleet bridge code BRSUP → VPS inbox |
+| Command Center Manager-VPS | CCM | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code CCM → VPS inbox |
+| CF Agent-VPS | CFA | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code CFA → VPS inbox |
+| CFO-VPS | CFO | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code CFO → VPS inbox |
+| Client Bot Factory-VPS | CBF | local-big (LiteLLM; underlying version unverified) | Fleet bridge code CBF → VPS inbox |
+| Comms-VPS | COMMS | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code COMMS → VPS inbox |
+| Controller-VPS | CTRL | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code CTRL → VPS inbox |
+| CRM Bot1-VPS | CRMB1 | local-big (LiteLLM; underlying version unverified) | Fleet bridge code CRMB1 → VPS inbox |
+| CRM Bot2-VPS | CRMB2 | local-big (LiteLLM; underlying version unverified) | Fleet bridge code CRMB2 → VPS inbox |
+| CRM Lead-VPS | CRM | local-big (LiteLLM; underlying version unverified) | Fleet bridge code CRM → VPS inbox |
+| CRM Tut-VPS | CRMT | local-big (LiteLLM; underlying version unverified) | Fleet bridge code CRMT → VPS inbox |
+| Deal Closer-VPS | DEAL | local-big (LiteLLM; underlying version unverified) | Fleet bridge code DEAL → VPS inbox |
+| Gauntlet-VPS | GAUNT | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code GAUNT → VPS inbox |
+| GHL Webhook-VPS | GHLWH | local-big (LiteLLM; underlying version unverified) | Fleet bridge code GHLWH → VPS inbox |
+| HR-VPS | HRM | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code HRM → VPS inbox |
+| HS Desk-VPS | HSD | local-big (LiteLLM; underlying version unverified) | Fleet bridge code HSD → VPS inbox |
+| ICOM-VPS (runner seat) | ICOM | local-big (LiteLLM; underlying version unverified) | Fleet bridge code ICOM → VPS inbox |
+| Inbox Poller-VPS | POLL | local-big (LiteLLM; underlying version unverified) | Fleet bridge code POLL → VPS inbox |
+| Infra Engineer-VPS | INFRA | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code INFRA → VPS inbox |
+| Integrations Engineer-VPS | INT | local-big (LiteLLM; underlying version unverified) | Fleet bridge code INT → VPS inbox |
+| Keeley-VPS | KEEL | local-big (LiteLLM; underlying version unverified) | Fleet bridge code KEEL → VPS inbox |
+| Legal & Compliance-VPS | LEGAL | local-big (LiteLLM; underlying version unverified) | Fleet bridge code LEGAL → VPS inbox |
+| Librarian-VPS | LIB | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code LIB → VPS inbox |
+| LLM Researcher-VPS | LLMR | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code LLMR → VPS inbox |
+| Marra Support-VPS | MRSUP | local-big (LiteLLM; underlying version unverified) | Fleet bridge code MRSUP → VPS inbox |
+| Mejer Support-VPS | MJSUP | local-big (LiteLLM; underlying version unverified) | Fleet bridge code MJSUP → VPS inbox |
+| Prospector-VPS | PROS | local-big (LiteLLM; underlying version unverified) | Fleet bridge code PROS → VPS inbox |
+| QC-VPS | QC | local-big (LiteLLM; underlying version unverified) | Fleet bridge code QC → VPS inbox |
+| Risk Manager-VPS | RISK | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code RISK → VPS inbox |
+| Security Engineer-VPS | SEC | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code SEC → VPS inbox |
+| Sync Watchdog-VPS | SYNC | local-big (LiteLLM; underlying version unverified) | Fleet bridge code SYNC → VPS inbox |
+| Synthflow Exit-VPS | SFX | local-big (LiteLLM; underlying version unverified) | Fleet bridge code SFX → VPS inbox |
+| Tech Team Leader-VPS | TTL | claude-max-opus (Mini relay; underlying version unverified) | Fleet bridge code TTL → VPS inbox |
+| Upsell Bot-VPS | UPSL | local-big (LiteLLM; underlying version unverified) | Fleet bridge code UPSL → VPS inbox |
+| Voice Engineer-VPS | VOICE | local-big (LiteLLM; underlying version unverified) | Fleet bridge code VOICE → VPS inbox |
+| Westbrook Support-VPS | WBSUP | local-big (LiteLLM; underlying version unverified) | Fleet bridge code WBSUP → VPS inbox |
 
 ### Other VPS services (same host, not agent-runner seats)
 
 12 agents.
 
-| Name | ICOM code | Host / IP | MAC | LLM | How reached |
-|---|---|---|---|---|---|
-| iron-buzz-exec@ceo | n/a | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | unverified | systemd on vps over Tailscale |
-| iron-buzz-exec@cmo | n/a | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | unverified | systemd on vps over Tailscale |
-| iron-buzz-da | n/a | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | unverified | systemd on vps over Tailscale |
-| buzz-cogent | n/a | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | unverified | systemd on vps over Tailscale |
-| buzz-pilot | n/a | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | unverified | systemd on vps over Tailscale |
-| buzz-vidprod | n/a | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | unverified | systemd on vps over Tailscale |
-| buzz-vidprod-iron | n/a | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | unverified | systemd on vps over Tailscale |
-| cogent-desk@crm-admin | n/a | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | unverified | systemd on vps over Tailscale |
-| cogent-desk@hs-desk | n/a | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | unverified | systemd on vps over Tailscale |
-| cogent-desk@librarian | n/a | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | unverified | systemd on vps over Tailscale |
-| cogent-desk@qc-bot | n/a | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | unverified | systemd on vps over Tailscale |
-| cogent-desk@sara-desk | n/a | srv805570; TS 100.125.196.122; pub 45.90.223.216 | eth0 8c:e8:d4:b1:5a:c2 | unverified | systemd on vps over Tailscale |
+| Name | ICOM code | LLM | How reached |
+|---|---|---|---|
+| iron-buzz-exec@ceo | n/a | unverified | systemd on vps |
+| iron-buzz-exec@cmo | n/a | unverified | systemd on vps |
+| iron-buzz-da | n/a | unverified | systemd on vps |
+| buzz-cogent | n/a | unverified | systemd on vps |
+| buzz-pilot | n/a | unverified | systemd on vps |
+| buzz-vidprod | n/a | unverified | systemd on vps |
+| buzz-vidprod-iron | n/a | unverified | systemd on vps |
+| cogent-desk@crm-admin | n/a | unverified | systemd on vps |
+| cogent-desk@hs-desk | n/a | unverified | systemd on vps |
+| cogent-desk@librarian | n/a | unverified | systemd on vps |
+| cogent-desk@qc-bot | n/a | unverified | systemd on vps |
+| cogent-desk@sara-desk | n/a | unverified | systemd on vps |
 
-### Hermes Docker agents (host `hermes` / srv738448)
+### Hermes Docker agents (host `hermes`)
 
 32 agents.
 
-| Name | ICOM code | Host / IP | MAC | LLM | How reached |
-|---|---|---|---|---|---|
-| vidprod-runner-worker | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| ceo-livekit-agent | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| ceo-livekit-agent-b | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| mke-voice | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| hermes-cmo-swarm | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| hermes-strategy | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| hermes-brand-director | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| hermes-creative-director | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| hermes-video-producer | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| hermes-research | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| hermes-web-developer | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| hermes-copywriter | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| hermes-quality-control | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| hermes-design-reviewer | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| hermes-community-manager | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| hermes-compliance-reviewer | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| hermes-traffic-manager | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| hermes-managing-editor | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| hermes-growth-analyst | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| hermes-social | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| hermes-seo-analyst | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| hermes-competitive-intelligence | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| hermes-conversion-strategist | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| hermes-curator | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| hermes-diagram | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| hermes-presentation | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| web-operator | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| voice | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| geller-host-agent | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| hermes-docket-runner-cmo | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| hermes-content-pipeline | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
-| westbrook-dash-test | n/a | srv738448; TS 100.106.199.31; pub 193.203.164.163 | host eth0 4a:e8:d4:b0:54:90 (container MAC unverified) | unverified | Docker on hermes over Tailscale |
+| Name | ICOM code | LLM | How reached |
+|---|---|---|---|
+| vidprod-runner-worker | n/a | unverified | Docker on hermes |
+| ceo-livekit-agent | n/a | unverified | Docker on hermes |
+| ceo-livekit-agent-b | n/a | unverified | Docker on hermes |
+| mke-voice | n/a | unverified | Docker on hermes |
+| hermes-cmo-swarm | n/a | unverified | Docker on hermes |
+| hermes-strategy | n/a | unverified | Docker on hermes |
+| hermes-brand-director | n/a | unverified | Docker on hermes |
+| hermes-creative-director | n/a | unverified | Docker on hermes |
+| hermes-video-producer | n/a | unverified | Docker on hermes |
+| hermes-research | n/a | unverified | Docker on hermes |
+| hermes-web-developer | n/a | unverified | Docker on hermes |
+| hermes-copywriter | n/a | unverified | Docker on hermes |
+| hermes-quality-control | n/a | unverified | Docker on hermes |
+| hermes-design-reviewer | n/a | unverified | Docker on hermes |
+| hermes-community-manager | n/a | unverified | Docker on hermes |
+| hermes-compliance-reviewer | n/a | unverified | Docker on hermes |
+| hermes-traffic-manager | n/a | unverified | Docker on hermes |
+| hermes-managing-editor | n/a | unverified | Docker on hermes |
+| hermes-growth-analyst | n/a | unverified | Docker on hermes |
+| hermes-social | n/a | unverified | Docker on hermes |
+| hermes-seo-analyst | n/a | unverified | Docker on hermes |
+| hermes-competitive-intelligence | n/a | unverified | Docker on hermes |
+| hermes-conversion-strategist | n/a | unverified | Docker on hermes |
+| hermes-curator | n/a | unverified | Docker on hermes |
+| hermes-diagram | n/a | unverified | Docker on hermes |
+| hermes-presentation | n/a | unverified | Docker on hermes |
+| web-operator | n/a | unverified | Docker on hermes |
+| voice | n/a | unverified | Docker on hermes |
+| geller-host-agent | n/a | unverified | Docker on hermes |
+| hermes-docket-runner-cmo | n/a | unverified | Docker on hermes |
+| hermes-content-pipeline | n/a | unverified | Docker on hermes |
+| westbrook-dash-test | n/a | unverified | Docker on hermes |
 
 ### Off-box ICOM parties
 
 3 agents.
 
-| Name | ICOM code | Host / IP | MAC | LLM | How reached |
-|---|---|---|---|---|---|
-| Sara C | SARAC | n/a | n/a | unverified | IRON fleet bridge `send_message` `to=sara-c` |
-| Sara A | SARAA | n/a | n/a | unverified | IRON fleet bridge `send_message` `to=sara-a` |
-| Udon | UDON | n/a | n/a | unverified | IRON fleet bridge `send_message` `to=udon` |
+| Name | ICOM code | LLM | How reached |
+|---|---|---|---|
+| Sara C | SARAC | unverified | IRON fleet bridge `send_message` `to=sara-c` |
+| Sara A | SARAA | unverified | IRON fleet bridge `send_message` `to=sara-a` |
+| Udon | UDON | unverified | IRON fleet bridge `send_message` `to=udon` |
 
 ## Changelog
+- 2026-11-18: remove host network details (IPs, MACs, internal hostnames, deployment paths, service unit names and ports) from the public roster.
 - 2026-11-17: standard. Codebook and card 1.16.0 (`cb=1.16.0` `icom=v2`). Topic classes and aliases added to Rule 14; role words (LEAD, OWNER, ARCH, FROM, TO, LANE) are not codes; LANE is banned in the client slot; SAY is not a verb; public examples use placeholder lead/owner codes LDR and HUM. Status changes from draft proposal to standard. Agent roster of 131 agents added (ICOM code, name, host or IP, MAC, LLM, and how each is reached).
 - 2026-11-16: v2 addendum. New Rule 25 (result copy to LEAD, optional, relay-side). It is the reference deployment's Rule 27, generalized; that deployment's Rules 25-26 stay deployment-specific. No agent-card or `icom=` change: agents behave the same.
 - 2026-11-12: v2 (CHP/2). Synced with the reference deployment: required `cb= icom= ts=` suffix (Rules 13, 20); ACK receive-only; agent card wins over other ICOM text; Rule 18 is now P0 status and the no-echo guard moved to Rule 24 with per-recipient keys and a pair cap; new Rules 16 (inbound guard), 20 (retransmit, order, version), 21 (inbox window, lifetime, congestion), 22 (share), 23 (thread tags); grade requests carry builder=; codebook 1.7.0 adds 19 verbs; `ICOM-AGENT-CARD.md` added. Rules 25-27 of the reference deployment stay deployment-specific.

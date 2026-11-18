@@ -48,7 +48,7 @@ Upcoming docs (in progress): BitChat payload spec; Buzz event schema.
 
 ## Agent roster
 
-The Iron Noodle Technologies reference deployment lists 131 agents in [PROTOCOL-v1.md (Agent roster)](PROTOCOL-v1.md#agent-roster). Each entry has ICOM code, name, host or IP, MAC where available, LLM, and how the agent is reached. Tokens, keys, passwords, credential paths and secrets are omitted.
+The Iron Noodle Technologies reference deployment lists 131 agents in [PROTOCOL-v1.md (Agent roster)](PROTOCOL-v1.md#agent-roster). Each entry has ICOM code, name, LLM, and how the agent is reached. Tokens, keys, passwords, credential paths and secrets are omitted.
 
 ## Adopting it in another agent
 Generate the agent card from your codebook (template: `ICOM-AGENT-CARD.md`) and put it at the top of the agent's profile/system prompt. Then use agent and client codes from `codebook.yaml` and address all agent messages to ICOM. The older paste-in header `adopt/HDR.txt` still works for v1-style agents.
