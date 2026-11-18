@@ -1,6 +1,6 @@
 # ICOM codebook — owned by the ICOM router agent. Append-only; never reuse a retired code.
-version: 1.7.0
-updated: 2026-11-12
+version: 1.16.0
+updated: 2026-11-17
 rules: {max_code_len: 6, case: UPPER for agents/clients/verbs, lower.dot for objects}
 verbs:       # header slot 4; maps to house codes D/R/F/O/Q/A
   GO: start/approved to proceed
@@ -36,7 +36,8 @@ verbs:       # header slot 4; maps to house codes D/R/F/O/Q/A
   OPEN: new item/ticket opened
 priority: {P0.0: emergency (Rule 19; any agent; never suppressed; capped per sender), P0: drop everything, P1: today, P2: this week, P3: whenever}
 agents:
-  LEAD: lead agent (coordinates; only agent that speaks English to the owner)
+  # 1.16.0: LEAD and OWNER are role words, not codes (see tombstones).
+  LDR: lead agent (coordinates; only agent that speaks English to the owner)
   CTO: CTO / technical lead
   CRM: CRM lead
   COMMS: comms (client-facing copy, plain English)
@@ -47,7 +48,7 @@ agents:
   QC: QC agent
   ICOM: ICOM router (codebook owner)
   ALL: broadcast
-  OWNER: owner (human)
+  HUM: owner (human)
   # added 1.1.0
   TTL: tech team leader
   SEC: security engineer
@@ -138,3 +139,27 @@ echo:        # added 1.6.0 — Rule 24 no-echo tunables (seconds; was rule 18)
   loop_s: 86400
 paths:       # optional aliases, expand by prefix
   "%w": ~/work
+
+# topic classes from the 1.16.0 agent card (object first word)
+topics:
+  classes: [org, pr, sys, ops, mk, fin, lg, rs, dt, x]
+  never_as_class: [net, svc, dx, drift, sec, gate, cred, config]
+  aliases:
+    network: sys.net
+    egress: sys.net.egress
+    proxy: sys.net.proxy
+    allowlist: sys.net.allow
+    dns: sys.net.dns
+    service_health: sys.health
+    diagnosis: ops.diag
+    drift: ops.drift
+    security_review: sys.sec.review
+    permissions: ops.perm
+    credentials: ops.cred
+    approval_gate: org.gate
+  facet: "~cfg marks a config change (e.g. sys.net.allow~cfg)"
+
+# retired codes stay reserved and are never reused
+tombstones:
+  LEAD: retired 1.16.0; role word, not a code. Use the code assigned to the lead role (this public codebook: LDR).
+  OWNER: retired 1.16.0; role word, not a code. Use the code assigned to the owner role (this public codebook: HUM).

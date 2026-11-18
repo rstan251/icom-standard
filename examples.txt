@@ -50,3 +50,6 @@ next: QC:spot10
 
 ## b64_v1
 QElOVD5MRUFEIFAyIENMMTMgRE9ORSBjb250YWN0cy5pbXBvcnQgZml4ZWQgZm49Y2wtbG9va3VwIHY9MjYzYWEyMTAgcmI9ZWE4ZWQwZTYgbj00MTIgZXJyPTAgZj1+L3dvcmsvbG9ncy9jb250YWN0cy1pbXBvcnQubG9nIG54PVFDOnNwb3QxMA==
+
+## v2
+@INT>ICOM>LDR P2 CL13 DONE contacts.import status=fixed fn=cl-lookup v=263aa210 rb=ea8ed0e6 n=412 err=0 f=T-1234 nx=QC:spot10 cb=1.16.0 icom=v2 ts=2026-11-17.20:13:00.AZ
